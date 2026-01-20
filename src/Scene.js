@@ -876,9 +876,12 @@ class Scene {
     if (!Number.isFinite(safeCount) || safeCount <= 0)
       return 0;
 
-    var maxCopies = 200;
+    var maxCopies = 100;
     var maxPerMesh = Math.floor(maxCopies / Math.max(1, meshCount));
-    return Math.max(1, Math.min(safeCount, maxPerMesh));
+    if (maxPerMesh < 1)
+      return 0;
+
+    return Math.min(safeCount, maxPerMesh);
   }
 
   _getFiniteNumber(value) {
