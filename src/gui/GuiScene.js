@@ -57,7 +57,7 @@ class GuiScene {
       TR('sceneCopyPatternLinear'),
       TR('sceneCopyPatternPolar')
     ]);
-    menu.addSlider(TR('sceneCopyPatternCount'), this._copyPatternCount, this.onCopyPatternCount.bind(this), 1, 50, 1);
+    menu.addSlider(TR('sceneCopyPatternCount'), this._copyPatternCount, this.onCopyPatternCount.bind(this), 1, 20, 1);
     this._ctrlCopyPatternSpacing = menu.addSlider(TR('sceneCopyPatternSpacing'), this._copyPatternSpacing, this.onCopyPatternSpacing.bind(this), 0, 100, 1);
     this._ctrlCopyPatternAngle = menu.addSlider(TR('sceneCopyPatternAngle'), this._copyPatternAngle, this.onCopyPatternAngle.bind(this), 0, 360, 1);
     this._ctrlCopyPatternRadius = menu.addSlider(TR('sceneCopyPatternRadius'), this._copyPatternRadius, this.onCopyPatternRadius.bind(this), 0, 100, 1);
