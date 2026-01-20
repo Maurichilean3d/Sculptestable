@@ -771,8 +771,7 @@ class Scene {
     var mesh = null;
     for (var i = 0; i < meshes.length; ++i) {
       mesh = meshes[i];
-      var copy = new MeshStatic(mesh.getGL());
-      copy.copyData(mesh);
+      var copy = this._createMeshCopy(mesh);
 
       this.addNewMesh(copy);
     }
@@ -803,8 +802,7 @@ class Scene {
         var baseMesh = meshes[i];
         for (var step = 1; step <= count; ++step) {
           var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
-          var copy = new MeshStatic(baseMesh.getGL());
-          copy.copyData(baseMesh);
+          var copy = this._createMeshCopy(baseMesh);
           this._applyMeshTransform(copy, this._createTranslationMatrix(offset));
           this.addNewMeshBatch(copy);
           newMeshes.push(copy);
@@ -829,7 +827,7 @@ class Scene {
     }
 
     if (lastMesh)
-      this.setMesh(lastMesh);
+      this.setMesh(meshes[meshes.length - 1]);
   }
 
   duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
@@ -858,8 +856,7 @@ class Scene {
         var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
         for (var step = 1; step <= count; ++step) {
           var angle = angleDeg * step * Math.PI / 180.0;
-          var copy = new MeshStatic(baseMesh.getGL());
-          copy.copyData(baseMesh);
+          var copy = this._createMeshCopy(baseMesh);
           this._applyMeshTransform(copy, this._createPolarMatrix(baseCenter, axis, offset, angle));
           this.addNewMeshBatch(copy);
           newMeshes.push(copy);
@@ -884,7 +881,7 @@ class Scene {
     }
 
     if (lastMesh)
-      this.setMesh(lastMesh);
+      this.setMesh(meshes[meshes.length - 1]);
   }
 
   _applyMeshTransform(mesh, transform) {
@@ -896,6 +893,12 @@ class Scene {
     var mat = mat4.create();
     mat4.translate(mat, mat, offset);
     return mat;
+  }
+
+  _createMeshCopy(mesh) {
+    var copy = new MeshStatic(mesh.getGL());
+    copy.copyData(mesh);
+    return copy;
   }
 
   _createPolarMatrix(center, axis, offset, angle) {
