@@ -54,6 +54,9 @@ var TR = {
   sceneMerge: 'Merge selection',
   sceneDuplicate: 'Copy selection',
   sceneDelete: 'Delete selection',
+  sceneSelectAll: 'Select all',
+  sceneSelectMore: 'Select more',
+  sceneSelectLess: 'Select less',
 
   // mesh
   meshTitle: 'Mesh',
