@@ -2,13 +2,14 @@ import { mat3 } from 'gl-matrix';
 import getOptionsURL from 'misc/getOptionsURL';
 import ShaderBase from 'render/shaders/ShaderBase';
 import pbrGLSL from 'render/shaders/glsl/pbr.glsl';
+import Utils from 'misc/Utils';
 
 var ShaderPBR = ShaderBase.getCopy();
 ShaderPBR.vertexName = ShaderPBR.fragmentName = 'ShadingPBR';
 
 ShaderPBR.textures = {};
 
-var texPath = 'resources/environments/';
+var texPath = Utils.getResourcePath('environments/');
 ShaderPBR.environments = [{
   // https://hdrihaven.com/hdri/?h=mpumalanga_veld
   path: texPath + 'mpumalanga_veld_1k.png',
