@@ -784,10 +784,7 @@ class Scene {
     axisIndex = this._getAxisIndex(axisIndex);
 
     var axis = this._getAxisVector(axisIndex);
-    this._duplicateSelectionPattern(count, function (baseMesh, step) {
-      var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
-      return this._createTranslationMatrix(offset);
-    }.bind(this));
+    this._duplicateSelectionPattern(count, this._buildLinearPattern(axis, spacing));
   }
 
   duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
@@ -797,11 +794,7 @@ class Scene {
 
     var axis = this._getAxisVector(axisIndex);
     var offset = this._getPolarOffset(radius, axisIndex);
-    this._duplicateSelectionPattern(count, function (baseMesh, step) {
-      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
-      var angle = angleDeg * step * Math.PI / 180.0;
-      return this._createPolarMatrix(baseCenter, axis, offset, angle);
-    }.bind(this));
+    this._duplicateSelectionPattern(count, this._buildPolarPattern(axis, offset, angleDeg));
   }
 
   _applyMeshTransform(mesh, transform) {
@@ -861,6 +854,21 @@ class Scene {
     this._addMeshes(copies, meshes[meshes.length - 1]);
   }
 
+  _buildLinearPattern(axis, spacing) {
+    return function (baseMesh, step) {
+      var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
+      return this._createTranslationMatrix(offset);
+    }.bind(this);
+  }
+
+  _buildPolarPattern(axis, offset, angleDeg) {
+    return function (baseMesh, step) {
+      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
+      var angle = angleDeg * step * Math.PI / 180.0;
+      return this._createPolarMatrix(baseCenter, axis, offset, angle);
+    }.bind(this);
+  }
+
   _addMeshes(meshes, selectMesh) {
     if (!meshes.length)
       return;
@@ -871,12 +879,6 @@ class Scene {
       this.setMesh(selectMesh);
     else
       this.setMesh(meshes[meshes.length - 1]);
-  }
-
-  _createMeshCopy(mesh) {
-    var copy = new MeshStatic(mesh.getGL());
-    copy.copyData(mesh);
-    return copy;
   }
 
   _createPolarMatrix(center, axis, offset, angle) {
