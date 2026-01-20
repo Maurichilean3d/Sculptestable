@@ -835,23 +835,15 @@ class Scene {
         }
       }
 
-      // Add all new meshes to state manager in one operation
-      if (newMeshes.length > 0) {
-        this._stateManager.pushStateAdd(newMeshes);
-        console.info('Successfully created', newMeshes.length, 'pattern copies');
-      }
     } catch (e) {
       console.error('Pattern duplication failed:', e);
-      // Remove any partially created meshes
-      for (var j = 0; j < newMeshes.length; ++j) {
-        var idx = this._meshes.indexOf(newMeshes[j]);
-        if (idx >= 0) this._meshes.splice(idx, 1);
-      }
       alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
       return;
     }
 
     this._addMeshes(copies, meshes[meshes.length - 1]);
+    if (copies.length > 0)
+      console.info('Successfully created', copies.length, 'pattern copies');
   }
 
   _buildLinearPattern(axis, spacing) {
