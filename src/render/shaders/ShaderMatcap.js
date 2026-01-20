@@ -1,5 +1,6 @@
 import TR from 'gui/GuiTR';
 import ShaderBase from 'render/shaders/ShaderBase';
+import Utils from 'misc/Utils';
 
 var ShaderMatcap = ShaderBase.getCopy();
 ShaderMatcap.vertexName = ShaderMatcap.fragmentName = 'Matcap';
@@ -15,7 +16,7 @@ ShaderMatcap.createTexture = function (gl, img, idMaterial) {
   ShaderMatcap.textures[idMaterial] = idTex;
 };
 
-var texPath = 'resources/matcaps/';
+var texPath = Utils.getResourcePath('matcaps/');
 ShaderMatcap.matcaps = [{
   path: texPath + 'matcapFV.jpg',
   name: 'matcap FV' // too lazy to tr
