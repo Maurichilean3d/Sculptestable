@@ -814,7 +814,7 @@ class Scene {
     return copy;
   }
 
-  _duplicateSelectionPattern(count, transformFn) {
+  _duplicateSelectionPattern(count, transformFactory) {
     if (!this._selectMeshes.length)
       return;
 
@@ -826,46 +826,52 @@ class Scene {
     var copies = [];
 
     try {
+      var transforms = new Array(meshes.length);
+      for (var t = 0; t < meshes.length; ++t)
+        transforms[t] = transformFactory(meshes[t]);
+
       for (var step = 1; step <= count; ++step) {
         for (var i = 0; i < meshes.length; ++i) {
           var baseMesh = meshes[i];
           var copy = this._createMeshCopy(baseMesh);
-          this._applyMeshTransform(copy, transformFn(baseMesh, step));
+          this._applyMeshTransform(copy, transforms[i]());
           copies.push(copy);
         }
       }
 
-      // Add all new meshes to state manager in one operation
-      if (newMeshes.length > 0) {
-        this._stateManager.pushStateAdd(newMeshes);
-        console.info('Successfully created', newMeshes.length, 'pattern copies');
-      }
     } catch (e) {
       console.error('Pattern duplication failed:', e);
-      // Remove any partially created meshes
-      for (var j = 0; j < newMeshes.length; ++j) {
-        var idx = this._meshes.indexOf(newMeshes[j]);
-        if (idx >= 0) this._meshes.splice(idx, 1);
-      }
       alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
       return;
     }
 
     this._addMeshes(copies, meshes[meshes.length - 1]);
+    if (copies.length > 0)
+      console.info('Successfully created', copies.length, 'pattern copies');
   }
 
   _buildLinearPattern(axis, spacing) {
-    return function (baseMesh, step) {
-      var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
-      return this._createTranslationMatrix(offset);
+    var stepOffset = vec3.scale([0, 0, 0], axis, spacing);
+    var stepTransform = this._createTranslationMatrix(stepOffset);
+    return function () {
+      var current = mat4.create();
+      return function () {
+        mat4.mul(current, stepTransform, current);
+        return mat4.clone(current);
+      };
     }.bind(this);
   }
 
   _buildPolarPattern(axis, offset, angleDeg) {
-    return function (baseMesh, step) {
+    return function (baseMesh) {
       var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
-      var angle = angleDeg * step * Math.PI / 180.0;
-      return this._createPolarMatrix(baseCenter, axis, offset, angle);
+      var angle = angleDeg * Math.PI / 180.0;
+      var stepTransform = this._createPolarMatrix(baseCenter, axis, offset, angle);
+      var current = mat4.create();
+      return function () {
+        mat4.mul(current, stepTransform, current);
+        return mat4.clone(current);
+      };
     }.bind(this);
   }
 
