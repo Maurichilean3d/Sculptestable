@@ -679,6 +679,12 @@ class Scene {
     return mesh;
   }
 
+  addNewMeshBatch(mesh) {
+    // Add mesh without triggering render - used for batch operations
+    this._meshes.push(mesh);
+    return mesh;
+  }
+
   loadScene(fileData, fileType) {
     var newMeshes;
     if (fileType === 'obj') newMeshes = Import.importOBJ(fileData, this._gl);
@@ -820,7 +826,7 @@ class Scene {
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes.length);
+    count = this._getPatternCount(count, meshes);
     if (count <= 0)
       return;
 
@@ -835,8 +841,19 @@ class Scene {
           copies.push(copy);
         }
       }
+
+      // Add all new meshes to state manager in one operation
+      if (newMeshes.length > 0) {
+        this._stateManager.pushStateAdd(newMeshes);
+        console.info('Successfully created', newMeshes.length, 'pattern copies');
+      }
     } catch (e) {
       console.error('Pattern duplication failed:', e);
+      // Remove any partially created meshes
+      for (var j = 0; j < newMeshes.length; ++j) {
+        var idx = this._meshes.indexOf(newMeshes[j]);
+        if (idx >= 0) this._meshes.splice(idx, 1);
+      }
       alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
       return;
     }
@@ -854,6 +871,12 @@ class Scene {
       this.setMesh(selectMesh);
     else
       this.setMesh(meshes[meshes.length - 1]);
+  }
+
+  _createMeshCopy(mesh) {
+    var copy = new MeshStatic(mesh.getGL());
+    copy.copyData(mesh);
+    return copy;
   }
 
   _createPolarMatrix(center, axis, offset, angle) {
@@ -879,17 +902,67 @@ class Scene {
     return idx;
   }
 
-  _getPatternCount(count, meshCount) {
+  _getPatternCount(count, meshes) {
     var safeCount = Math.floor(Number(count));
     if (!Number.isFinite(safeCount) || safeCount <= 0)
       return 0;
+
+    var meshCount = meshes.length;
+    if (!meshCount)
+      return 0;
+
+    // Validate all meshes before proceeding
+    for (var j = 0; j < meshCount; ++j) {
+      if (!meshes[j] || typeof meshes[j].getNbTriangles !== 'function') {
+        console.error('Invalid mesh detected at index', j);
+        window.alert('One or more selected meshes are invalid. Please reselect and try again.');
+        return 0;
+      }
+    }
 
     var maxCopies = 20;
     var maxPerMesh = Math.floor(maxCopies / meshCount);
     if (maxPerMesh < 1)
       return 0;
 
-    return Math.min(safeCount, maxPerMesh);
+    // Calculate total triangles with validation
+    var totalTriangles = 0;
+    for (var i = 0; i < meshCount; ++i) {
+      try {
+        var nbTriangles = meshes[i].getNbTriangles();
+        if (!Number.isFinite(nbTriangles) || nbTriangles < 0) {
+          console.error('Invalid triangle count for mesh', i, ':', nbTriangles);
+          window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
+          return 0;
+        }
+        totalTriangles += nbTriangles;
+      } catch (e) {
+        console.error('Error getting triangle count for mesh', i, ':', e);
+        window.alert('Error analyzing mesh geometry. Please try with different meshes.');
+        return 0;
+      }
+    }
+
+    // Safety check for total triangles
+    if (totalTriangles === 0) {
+      window.alert('Selected meshes have no triangles. Cannot duplicate empty meshes.');
+      return 0;
+    }
+
+    var maxTotalTriangles = 1000000;
+    var maxByTriangles = Math.floor(maxTotalTriangles / totalTriangles);
+    if (maxByTriangles < 1) {
+      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
+      return 0;
+    }
+
+    var maxAllowed = Math.min(safeCount, maxPerMesh, maxByTriangles);
+    if (safeCount > maxAllowed) {
+      console.warn('Pattern duplication reduced from', safeCount, 'to', maxAllowed, 'to avoid excessive geometry.');
+      console.info('Mesh count:', meshCount, 'Total triangles:', totalTriangles, 'Max copies allowed:', maxAllowed);
+    }
+
+    return maxAllowed;
   }
 
   _getFiniteNumber(value) {
