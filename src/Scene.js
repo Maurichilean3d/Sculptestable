@@ -775,11 +775,18 @@ class Scene {
   }
 
   duplicateSelectionLinear(count, spacing, axisIndex) {
-    if (!this._selectMeshes.length || count <= 0)
+    if (!this._selectMeshes.length)
       return;
 
-    var axis = this._getAxisVector(axisIndex);
     var meshes = this._selectMeshes.slice();
+    count = this._getPatternCount(count, meshes.length);
+    if (count <= 0)
+      return;
+
+    spacing = this._getFiniteNumber(spacing);
+    axisIndex = this._getAxisIndex(axisIndex);
+
+    var axis = this._getAxisVector(axisIndex);
     var lastMesh = null;
     for (var i = 0; i < meshes.length; ++i) {
       var baseMesh = meshes[i];
@@ -798,12 +805,20 @@ class Scene {
   }
 
   duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
-    if (!this._selectMeshes.length || count <= 0)
+    if (!this._selectMeshes.length)
       return;
+
+    var meshes = this._selectMeshes.slice();
+    count = this._getPatternCount(count, meshes.length);
+    if (count <= 0)
+      return;
+
+    angleDeg = this._getFiniteNumber(angleDeg);
+    radius = this._getFiniteNumber(radius);
+    axisIndex = this._getAxisIndex(axisIndex);
 
     var axis = this._getAxisVector(axisIndex);
     var offset = this._getPolarOffset(radius, axisIndex);
-    var meshes = this._selectMeshes.slice();
     var lastMesh = null;
     for (var i = 0; i < meshes.length; ++i) {
       var baseMesh = meshes[i];
@@ -847,6 +862,28 @@ class Scene {
     if (axisIndex === 0) return [1, 0, 0];
     if (axisIndex === 1) return [0, 1, 0];
     return [0, 0, 1];
+  }
+
+  _getAxisIndex(axisIndex) {
+    var idx = Math.round(Number(axisIndex));
+    if (idx !== 0 && idx !== 1 && idx !== 2)
+      return 2;
+    return idx;
+  }
+
+  _getPatternCount(count, meshCount) {
+    var safeCount = Math.floor(Number(count));
+    if (!Number.isFinite(safeCount) || safeCount <= 0)
+      return 0;
+
+    var maxCopies = 200;
+    var maxPerMesh = Math.floor(maxCopies / Math.max(1, meshCount));
+    return Math.max(1, Math.min(safeCount, maxPerMesh));
+  }
+
+  _getFiniteNumber(value) {
+    var num = Number(value);
+    return Number.isFinite(num) ? num : 0;
   }
 
   _getPolarOffset(radius, axisIndex) {
