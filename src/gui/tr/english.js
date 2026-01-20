@@ -57,6 +57,16 @@ var TR = {
   sceneSelectAll: 'Select all',
   sceneSelectMore: 'Select more',
   sceneSelectLess: 'Select less',
+  sceneCopyPattern: 'Copy pattern',
+  sceneCopyPatternType: 'Pattern type',
+  sceneCopyPatternLinear: 'Linear',
+  sceneCopyPatternPolar: 'Polar',
+  sceneCopyPatternCount: 'Copies',
+  sceneCopyPatternSpacing: 'Spacing',
+  sceneCopyPatternAngle: 'Angle step',
+  sceneCopyPatternRadius: 'Radius',
+  sceneCopyPatternAxis: 'Axis',
+  sceneCopyPatternApply: 'Apply pattern',
 
   // mesh
   meshTitle: 'Mesh',

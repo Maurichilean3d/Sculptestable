@@ -22,6 +22,8 @@ import WebGLCaps from 'render/WebGLCaps';
 var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
+var _TMP_COPY_CENTER = vec3.create();
+var _TMP_COPY_OFFSET = vec3.create();
 
 class Scene {
 
@@ -770,6 +772,88 @@ class Scene {
     }
 
     this.setMesh(mesh);
+  }
+
+  duplicateSelectionLinear(count, spacing, axisIndex) {
+    if (!this._selectMeshes.length || count <= 0)
+      return;
+
+    var axis = this._getAxisVector(axisIndex);
+    var meshes = this._selectMeshes.slice();
+    var lastMesh = null;
+    for (var i = 0; i < meshes.length; ++i) {
+      var baseMesh = meshes[i];
+      for (var step = 1; step <= count; ++step) {
+        var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
+        var copy = new MeshStatic(baseMesh.getGL());
+        copy.copyData(baseMesh);
+        this._applyMeshTransform(copy, this._createTranslationMatrix(offset));
+        this.addNewMesh(copy);
+        lastMesh = copy;
+      }
+    }
+
+    if (lastMesh)
+      this.setMesh(lastMesh);
+  }
+
+  duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
+    if (!this._selectMeshes.length || count <= 0)
+      return;
+
+    var axis = this._getAxisVector(axisIndex);
+    var offset = this._getPolarOffset(radius, axisIndex);
+    var meshes = this._selectMeshes.slice();
+    var lastMesh = null;
+    for (var i = 0; i < meshes.length; ++i) {
+      var baseMesh = meshes[i];
+      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
+      for (var step = 1; step <= count; ++step) {
+        var angle = angleDeg * step * Math.PI / 180.0;
+        var copy = new MeshStatic(baseMesh.getGL());
+        copy.copyData(baseMesh);
+        this._applyMeshTransform(copy, this._createPolarMatrix(baseCenter, axis, offset, angle));
+        this.addNewMesh(copy);
+        lastMesh = copy;
+      }
+    }
+
+    if (lastMesh)
+      this.setMesh(lastMesh);
+  }
+
+  _applyMeshTransform(mesh, transform) {
+    mat4.mul(mesh.getMatrix(), transform, mesh.getMatrix());
+    mat4.mul(mesh.getEditMatrix(), transform, mesh.getEditMatrix());
+  }
+
+  _createTranslationMatrix(offset) {
+    var mat = mat4.create();
+    mat4.translate(mat, mat, offset);
+    return mat;
+  }
+
+  _createPolarMatrix(center, axis, offset, angle) {
+    var mat = mat4.create();
+    if (offset[0] || offset[1] || offset[2])
+      mat4.translate(mat, mat, offset);
+    mat4.translate(mat, mat, center);
+    mat4.rotate(mat, mat, angle, axis);
+    mat4.translate(mat, mat, [-center[0], -center[1], -center[2]]);
+    return mat;
+  }
+
+  _getAxisVector(axisIndex) {
+    if (axisIndex === 0) return [1, 0, 0];
+    if (axisIndex === 1) return [0, 1, 0];
+    return [0, 0, 1];
+  }
+
+  _getPolarOffset(radius, axisIndex) {
+    if (!radius)
+      return [0, 0, 0];
+    if (axisIndex === 0) return [0, radius, 0];
+    return [radius, 0, 0];
   }
 
   onLoadAlphaImage(img, name, tool) {

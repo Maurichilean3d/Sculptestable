@@ -12,6 +12,12 @@ class GuiScene {
 
   init(guiParent) {
     var menu = this._menu = guiParent.addMenu(TR('sceneTitle'));
+    this._copyPatternType = 0;
+    this._copyPatternCount = 3;
+    this._copyPatternSpacing = 10;
+    this._copyPatternAngle = 30;
+    this._copyPatternRadius = 20;
+    this._copyPatternAxis = 2;
 
     // scene
     menu.addButton(TR('sceneReset'), this, 'clearScene' /*, 'CTRL+ALT+N'*/ );
@@ -46,6 +52,20 @@ class GuiScene {
     menu.addButton(TR('sceneDuplicate'), this, 'duplicateSelection');
     menu.addButton(TR('sceneDelete'), this, 'deleteSelection');
 
+    menu.addTitle(TR('sceneCopyPattern'));
+    menu.addCombobox(TR('sceneCopyPatternType'), this._copyPatternType, this.onCopyPatternType.bind(this), [
+      TR('sceneCopyPatternLinear'),
+      TR('sceneCopyPatternPolar')
+    ]);
+    menu.addSlider(TR('sceneCopyPatternCount'), this._copyPatternCount, this.onCopyPatternCount.bind(this), 1, 50, 1);
+    this._ctrlCopyPatternSpacing = menu.addSlider(TR('sceneCopyPatternSpacing'), this._copyPatternSpacing, this.onCopyPatternSpacing.bind(this), 0, 100, 1);
+    this._ctrlCopyPatternAngle = menu.addSlider(TR('sceneCopyPatternAngle'), this._copyPatternAngle, this.onCopyPatternAngle.bind(this), 0, 360, 1);
+    this._ctrlCopyPatternRadius = menu.addSlider(TR('sceneCopyPatternRadius'), this._copyPatternRadius, this.onCopyPatternRadius.bind(this), 0, 100, 1);
+    menu.addCombobox(TR('sceneCopyPatternAxis'), this._copyPatternAxis, this.onCopyPatternAxis.bind(this), ['X', 'Y', 'Z']);
+    menu.addButton(TR('sceneCopyPatternApply'), this, 'applyCopyPattern');
+
+    this.updateCopyPatternControls();
+
     // extra
     menu.addTitle(TR('renderingExtra'));
     menu.addCheckbox(TR('darkenUnselected'), ShaderBase.darkenUnselected, this.onDarkenUnselected.bind(this));
@@ -75,6 +95,47 @@ class GuiScene {
 
   deleteSelection() {
     this._main.deleteCurrentSelection();
+  }
+
+  onCopyPatternType(val) {
+    this._copyPatternType = val;
+    this.updateCopyPatternControls();
+  }
+
+  onCopyPatternCount(val) {
+    this._copyPatternCount = val;
+  }
+
+  onCopyPatternSpacing(val) {
+    this._copyPatternSpacing = val;
+  }
+
+  onCopyPatternAngle(val) {
+    this._copyPatternAngle = val;
+  }
+
+  onCopyPatternRadius(val) {
+    this._copyPatternRadius = val;
+  }
+
+  onCopyPatternAxis(val) {
+    this._copyPatternAxis = val;
+  }
+
+  updateCopyPatternControls() {
+    var isLinear = this._copyPatternType === 0;
+    this._ctrlCopyPatternSpacing.setVisibility(isLinear);
+    this._ctrlCopyPatternAngle.setVisibility(!isLinear);
+    this._ctrlCopyPatternRadius.setVisibility(!isLinear);
+  }
+
+  applyCopyPattern() {
+    if (this._copyPatternType === 0) {
+      this._main.duplicateSelectionLinear(this._copyPatternCount, this._copyPatternSpacing, this._copyPatternAxis);
+      return;
+    }
+
+    this._main.duplicateSelectionPolar(this._copyPatternCount, this._copyPatternAngle, this._copyPatternRadius, this._copyPatternAxis);
   }
 
   selectAll() {
