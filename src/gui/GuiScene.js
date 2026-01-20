@@ -35,6 +35,9 @@ class GuiScene {
 
     // selection stuffs
     menu.addTitle(TR('sceneSelection'));
+    menu.addButton(TR('sceneSelectAll'), this, 'selectAll');
+    menu.addButton(TR('sceneSelectMore'), this, 'selectMore');
+    menu.addButton(TR('sceneSelectLess'), this, 'selectLess');
     this._ctrlIsolate = menu.addCheckbox(TR('renderingIsolate'), false, this.showHide.bind(this));
     this._ctrlIsolate.setVisibility(false);
     this._ctrlMerge = menu.addButton(TR('sceneMerge'), this, 'merge');
@@ -72,6 +75,18 @@ class GuiScene {
 
   deleteSelection() {
     this._main.deleteCurrentSelection();
+  }
+
+  selectAll() {
+    this._main.selectAllMeshes();
+  }
+
+  selectMore() {
+    this._main.selectMoreMeshes();
+  }
+
+  selectLess() {
+    this._main.selectLessMeshes();
   }
 
   validatePreview() {

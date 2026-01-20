@@ -284,6 +284,58 @@ class Scene {
     return mesh;
   }
 
+  selectAllMeshes() {
+    if (!this._meshes.length) return;
+    this._selectMeshes = this._meshes.slice();
+    this._mesh = this._selectMeshes[0] || null;
+    this.getGui().updateMesh();
+    this.render();
+  }
+
+  selectMoreMeshes() {
+    if (!this._meshes.length) return;
+
+    if (!this._mesh) {
+      this.setOrUnsetMesh(this._meshes[0], false);
+      return;
+    }
+
+    if (this._selectMeshes.length === this._meshes.length) return;
+
+    var startIndex = this.getIndexMesh(this._mesh);
+    if (startIndex < 0) startIndex = 0;
+
+    for (var offset = 1; offset <= this._meshes.length; ++offset) {
+      var idx = (startIndex + offset) % this._meshes.length;
+      var candidate = this._meshes[idx];
+      if (this.getIndexSelectMesh(candidate) < 0) {
+        this._selectMeshes.push(candidate);
+        this._mesh = candidate;
+        this.getGui().updateMesh();
+        this.render();
+        return;
+      }
+    }
+  }
+
+  selectLessMeshes() {
+    if (!this._selectMeshes.length) return;
+
+    var idx = this.getIndexSelectMesh(this._mesh);
+    if (idx < 0) idx = this._selectMeshes.length - 1;
+
+    this._selectMeshes.splice(idx, 1);
+
+    if (!this._selectMeshes.length) {
+      this._mesh = null;
+    } else {
+      this._mesh = this._selectMeshes[0];
+    }
+
+    this.getGui().updateMesh();
+    this.render();
+  }
+
   renderSelectOverRtt() {
     if (this._requestRender())
       this._drawFullScene = false;
