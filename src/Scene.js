@@ -489,7 +489,7 @@ class Scene {
     var names = Picking.INIT_ALPHAS_NAMES;
     for (var i = 0, nbA = alphas.length; i < nbA; ++i) {
       var am = new Image();
-      am.src = 'resources/alpha/' + alphas[i];
+      am.src = Utils.getResourcePath('alpha/' + alphas[i]);
       am.onload = this.onLoadAlphaImage.bind(this, am, names[i]);
     }
   }
