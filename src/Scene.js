@@ -890,8 +890,7 @@ class Scene {
     if (!Number.isFinite(safeCount) || safeCount <= 0)
       return 0;
 
-    // Reduced from 100 to 30 to prevent browser crashes with complex meshes
-    var maxCopies = 30;
+    var maxCopies = 20;
     var maxPerMesh = Math.floor(maxCopies / Math.max(1, meshCount));
     if (maxPerMesh < 1)
       return 0;
