@@ -1,0 +1,13 @@
+.DS_Store
+yarn.lock
+standalone/*
+cache/*
+node_modules
+*~
+.idea/*
+*.sublime-workspace
+*.log
+*.map
+*.hdr
+tools/*.png
+tools/dist
