@@ -10,7 +10,42 @@ Utils.STATE_FLAG = 1; // flag value for states (always >= tags values)
 Utils.TRI_INDEX = 4294967295; // just a big integer to flag invalid positive index
 
 Utils.cursors = {};
-Utils.cursors.dropper = 'url(resources/dropper.png) 5 25, auto';
+
+Utils.getResourceBase = function () {
+  if (Utils.resourceBase)
+    return Utils.resourceBase;
+
+  var base = 'resources/';
+
+  if (typeof document !== 'undefined') {
+    var script = document.currentScript;
+    if (!script) {
+      var scripts = document.getElementsByTagName('script');
+      for (var i = scripts.length - 1; i >= 0; --i) {
+        var src = scripts[i].src;
+        if (src && src.indexOf('sculptgl.js') !== -1) {
+          script = scripts[i];
+          break;
+        }
+      }
+    }
+
+    if (script && script.src) {
+      base = new URL('resources/', script.src).toString();
+    } else if (typeof window !== 'undefined' && window.location) {
+      base = new URL('resources/', window.location.href).toString();
+    }
+  }
+
+  Utils.resourceBase = base;
+  return base;
+};
+
+Utils.getResourcePath = function (resource) {
+  return Utils.getResourceBase() + resource;
+};
+
+Utils.cursors.dropper = 'url(' + Utils.getResourcePath('dropper.png') + ') 5 25, auto';
 
 Utils.linearToSRGB1 = function (x) {
   return x < 0.0031308 ? x * 12.92 : 1.055 * Math.pow(x, 1.0 / 2.4) - 0.055;

@@ -22,6 +22,8 @@ import WebGLCaps from 'render/WebGLCaps';
 var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
+var _TMP_COPY_CENTER = vec3.create();
+var _TMP_COPY_OFFSET = vec3.create();
 
 class Scene {
 
@@ -284,6 +286,58 @@ class Scene {
     return mesh;
   }
 
+  selectAllMeshes() {
+    if (!this._meshes.length) return;
+    this._selectMeshes = this._meshes.slice();
+    this._mesh = this._selectMeshes[0] || null;
+    this.getGui().updateMesh();
+    this.render();
+  }
+
+  selectMoreMeshes() {
+    if (!this._meshes.length) return;
+
+    if (!this._mesh) {
+      this.setOrUnsetMesh(this._meshes[0], false);
+      return;
+    }
+
+    if (this._selectMeshes.length === this._meshes.length) return;
+
+    var startIndex = this.getIndexMesh(this._mesh);
+    if (startIndex < 0) startIndex = 0;
+
+    for (var offset = 1; offset <= this._meshes.length; ++offset) {
+      var idx = (startIndex + offset) % this._meshes.length;
+      var candidate = this._meshes[idx];
+      if (this.getIndexSelectMesh(candidate) < 0) {
+        this._selectMeshes.push(candidate);
+        this._mesh = candidate;
+        this.getGui().updateMesh();
+        this.render();
+        return;
+      }
+    }
+  }
+
+  selectLessMeshes() {
+    if (!this._selectMeshes.length) return;
+
+    var idx = this.getIndexSelectMesh(this._mesh);
+    if (idx < 0) idx = this._selectMeshes.length - 1;
+
+    this._selectMeshes.splice(idx, 1);
+
+    if (!this._selectMeshes.length) {
+      this._mesh = null;
+    } else {
+      this._mesh = this._selectMeshes[0];
+    }
+
+    this.getGui().updateMesh();
+    this.render();
+  }
+
   renderSelectOverRtt() {
     if (this._requestRender())
       this._drawFullScene = false;
@@ -489,7 +543,7 @@ class Scene {
     var names = Picking.INIT_ALPHAS_NAMES;
     for (var i = 0, nbA = alphas.length; i < nbA; ++i) {
       var am = new Image();
-      am.src = 'resources/alpha/' + alphas[i];
+      am.src = Utils.getResourcePath('alpha/' + alphas[i]);
       am.onload = this.onLoadAlphaImage.bind(this, am, names[i]);
     }
   }
@@ -718,6 +772,128 @@ class Scene {
     }
 
     this.setMesh(mesh);
+  }
+
+  duplicateSelectionLinear(count, spacing, axisIndex) {
+    if (!this._selectMeshes.length)
+      return;
+
+    var meshes = this._selectMeshes.slice();
+    count = this._getPatternCount(count, meshes.length);
+    if (count <= 0)
+      return;
+
+    spacing = this._getFiniteNumber(spacing);
+    axisIndex = this._getAxisIndex(axisIndex);
+
+    var axis = this._getAxisVector(axisIndex);
+    var lastMesh = null;
+    for (var i = 0; i < meshes.length; ++i) {
+      var baseMesh = meshes[i];
+      for (var step = 1; step <= count; ++step) {
+        var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
+        var copy = new MeshStatic(baseMesh.getGL());
+        copy.copyData(baseMesh);
+        this._applyMeshTransform(copy, this._createTranslationMatrix(offset));
+        this.addNewMesh(copy);
+        lastMesh = copy;
+      }
+    }
+
+    if (lastMesh)
+      this.setMesh(lastMesh);
+  }
+
+  duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
+    if (!this._selectMeshes.length)
+      return;
+
+    var meshes = this._selectMeshes.slice();
+    count = this._getPatternCount(count, meshes.length);
+    if (count <= 0)
+      return;
+
+    angleDeg = this._getFiniteNumber(angleDeg);
+    radius = this._getFiniteNumber(radius);
+    axisIndex = this._getAxisIndex(axisIndex);
+
+    var axis = this._getAxisVector(axisIndex);
+    var offset = this._getPolarOffset(radius, axisIndex);
+    var lastMesh = null;
+    for (var i = 0; i < meshes.length; ++i) {
+      var baseMesh = meshes[i];
+      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
+      for (var step = 1; step <= count; ++step) {
+        var angle = angleDeg * step * Math.PI / 180.0;
+        var copy = new MeshStatic(baseMesh.getGL());
+        copy.copyData(baseMesh);
+        this._applyMeshTransform(copy, this._createPolarMatrix(baseCenter, axis, offset, angle));
+        this.addNewMesh(copy);
+        lastMesh = copy;
+      }
+    }
+
+    if (lastMesh)
+      this.setMesh(lastMesh);
+  }
+
+  _applyMeshTransform(mesh, transform) {
+    mat4.mul(mesh.getMatrix(), transform, mesh.getMatrix());
+    mat4.mul(mesh.getEditMatrix(), transform, mesh.getEditMatrix());
+  }
+
+  _createTranslationMatrix(offset) {
+    var mat = mat4.create();
+    mat4.translate(mat, mat, offset);
+    return mat;
+  }
+
+  _createPolarMatrix(center, axis, offset, angle) {
+    var mat = mat4.create();
+    if (offset[0] || offset[1] || offset[2])
+      mat4.translate(mat, mat, offset);
+    mat4.translate(mat, mat, center);
+    mat4.rotate(mat, mat, angle, axis);
+    mat4.translate(mat, mat, [-center[0], -center[1], -center[2]]);
+    return mat;
+  }
+
+  _getAxisVector(axisIndex) {
+    if (axisIndex === 0) return [1, 0, 0];
+    if (axisIndex === 1) return [0, 1, 0];
+    return [0, 0, 1];
+  }
+
+  _getAxisIndex(axisIndex) {
+    var idx = Math.round(Number(axisIndex));
+    if (idx !== 0 && idx !== 1 && idx !== 2)
+      return 2;
+    return idx;
+  }
+
+  _getPatternCount(count, meshCount) {
+    var safeCount = Math.floor(Number(count));
+    if (!Number.isFinite(safeCount) || safeCount <= 0)
+      return 0;
+
+    var maxCopies = 100;
+    var maxPerMesh = Math.floor(maxCopies / Math.max(1, meshCount));
+    if (maxPerMesh < 1)
+      return 0;
+
+    return Math.min(safeCount, maxPerMesh);
+  }
+
+  _getFiniteNumber(value) {
+    var num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  _getPolarOffset(radius, axisIndex) {
+    if (!radius)
+      return [0, 0, 0];
+    if (axisIndex === 0) return [0, radius, 0];
+    return [radius, 0, 0];
   }
 
   onLoadAlphaImage(img, name, tool) {
