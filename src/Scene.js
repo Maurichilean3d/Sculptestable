@@ -779,7 +779,7 @@ class Scene {
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes.length);
+    count = this._getPatternCount(count, meshes);
     if (count <= 0)
       return;
 
@@ -816,7 +816,7 @@ class Scene {
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes.length);
+    count = this._getPatternCount(count, meshes);
     if (count <= 0)
       return;
 
@@ -885,17 +885,37 @@ class Scene {
     return idx;
   }
 
-  _getPatternCount(count, meshCount) {
+  _getPatternCount(count, meshes) {
     var safeCount = Math.floor(Number(count));
     if (!Number.isFinite(safeCount) || safeCount <= 0)
       return 0;
 
+    var meshCount = meshes.length;
+    if (!meshCount)
+      return 0;
+
     var maxCopies = 20;
-    var maxPerMesh = Math.floor(maxCopies / Math.max(1, meshCount));
+    var maxPerMesh = Math.floor(maxCopies / meshCount);
     if (maxPerMesh < 1)
       return 0;
 
-    return Math.min(safeCount, maxPerMesh);
+    var totalTriangles = 0;
+    for (var i = 0; i < meshCount; ++i)
+      totalTriangles += meshes[i].getNbTriangles();
+
+    var maxTotalTriangles = 1000000;
+    var maxByTriangles = totalTriangles > 0 ? Math.floor(maxTotalTriangles / totalTriangles) : 0;
+    if (maxByTriangles < 1) {
+      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
+      return 0;
+    }
+
+    var maxAllowed = Math.min(safeCount, maxPerMesh, maxByTriangles);
+    if (safeCount > maxAllowed) {
+      console.warn('Pattern duplication reduced from', safeCount, 'to', maxAllowed, 'to avoid excessive geometry.');
+    }
+
+    return maxAllowed;
   }
 
   _getFiniteNumber(value) {
