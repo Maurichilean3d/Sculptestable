@@ -765,8 +765,7 @@ class Scene {
     var mesh = null;
     for (var i = 0; i < meshes.length; ++i) {
       mesh = meshes[i];
-      var copy = new MeshStatic(mesh.getGL());
-      copy.copyData(mesh);
+      var copy = this._createMeshCopy(mesh);
 
       this.addNewMesh(copy);
     }
@@ -775,80 +774,28 @@ class Scene {
   }
 
   duplicateSelectionLinear(count, spacing, axisIndex) {
-    if (!this._selectMeshes.length)
-      return;
-
-    var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes.length);
-    if (count <= 0)
-      return;
-
     spacing = this._getFiniteNumber(spacing);
     axisIndex = this._getAxisIndex(axisIndex);
 
     var axis = this._getAxisVector(axisIndex);
-    var lastMesh = null;
-
-    try {
-      for (var i = 0; i < meshes.length; ++i) {
-        var baseMesh = meshes[i];
-        for (var step = 1; step <= count; ++step) {
-          var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
-          var copy = new MeshStatic(baseMesh.getGL());
-          copy.copyData(baseMesh);
-          this._applyMeshTransform(copy, this._createTranslationMatrix(offset));
-          this.addNewMesh(copy);
-          lastMesh = copy;
-        }
-      }
-    } catch (e) {
-      console.error('Pattern duplication failed:', e);
-      alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
-      return;
-    }
-
-    if (lastMesh)
-      this.setMesh(lastMesh);
+    this._duplicateSelectionPattern(count, function (baseMesh, step) {
+      var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
+      return this._createTranslationMatrix(offset);
+    }.bind(this));
   }
 
   duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
-    if (!this._selectMeshes.length)
-      return;
-
-    var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes.length);
-    if (count <= 0)
-      return;
-
     angleDeg = this._getFiniteNumber(angleDeg);
     radius = this._getFiniteNumber(radius);
     axisIndex = this._getAxisIndex(axisIndex);
 
     var axis = this._getAxisVector(axisIndex);
     var offset = this._getPolarOffset(radius, axisIndex);
-    var lastMesh = null;
-
-    try {
-      for (var i = 0; i < meshes.length; ++i) {
-        var baseMesh = meshes[i];
-        var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
-        for (var step = 1; step <= count; ++step) {
-          var angle = angleDeg * step * Math.PI / 180.0;
-          var copy = new MeshStatic(baseMesh.getGL());
-          copy.copyData(baseMesh);
-          this._applyMeshTransform(copy, this._createPolarMatrix(baseCenter, axis, offset, angle));
-          this.addNewMesh(copy);
-          lastMesh = copy;
-        }
-      }
-    } catch (e) {
-      console.error('Pattern duplication failed:', e);
-      alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
-      return;
-    }
-
-    if (lastMesh)
-      this.setMesh(lastMesh);
+    this._duplicateSelectionPattern(count, function (baseMesh, step) {
+      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
+      var angle = angleDeg * step * Math.PI / 180.0;
+      return this._createPolarMatrix(baseCenter, axis, offset, angle);
+    }.bind(this));
   }
 
   _applyMeshTransform(mesh, transform) {
@@ -860,6 +807,53 @@ class Scene {
     var mat = mat4.create();
     mat4.translate(mat, mat, offset);
     return mat;
+  }
+
+  _createMeshCopy(mesh) {
+    var copy = new MeshStatic(mesh.getGL());
+    copy.copyData(mesh);
+    return copy;
+  }
+
+  _duplicateSelectionPattern(count, transformFn) {
+    if (!this._selectMeshes.length)
+      return;
+
+    var meshes = this._selectMeshes.slice();
+    count = this._getPatternCount(count, meshes.length);
+    if (count <= 0)
+      return;
+
+    var copies = [];
+
+    try {
+      for (var step = 1; step <= count; ++step) {
+        for (var i = 0; i < meshes.length; ++i) {
+          var baseMesh = meshes[i];
+          var copy = this._createMeshCopy(baseMesh);
+          this._applyMeshTransform(copy, transformFn(baseMesh, step));
+          copies.push(copy);
+        }
+      }
+    } catch (e) {
+      console.error('Pattern duplication failed:', e);
+      alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
+      return;
+    }
+
+    this._addMeshes(copies, meshes[meshes.length - 1]);
+  }
+
+  _addMeshes(meshes, selectMesh) {
+    if (!meshes.length)
+      return;
+
+    Array.prototype.push.apply(this._meshes, meshes);
+    this._stateManager.pushStateAdd(meshes);
+    if (selectMesh !== undefined)
+      this.setMesh(selectMesh);
+    else
+      this.setMesh(meshes[meshes.length - 1]);
   }
 
   _createPolarMatrix(center, axis, offset, angle) {
@@ -891,7 +885,7 @@ class Scene {
       return 0;
 
     var maxCopies = 20;
-    var maxPerMesh = Math.floor(maxCopies / Math.max(1, meshCount));
+    var maxPerMesh = Math.floor(maxCopies / meshCount);
     if (maxPerMesh < 1)
       return 0;
 
