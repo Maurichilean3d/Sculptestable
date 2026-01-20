@@ -18,6 +18,7 @@ class GuiScene {
     this._copyPatternAngle = 30;
     this._copyPatternRadius = 20;
     this._copyPatternAxis = 2;
+    this._isPatternOperationInProgress = false;
 
     // scene
     menu.addButton(TR('sceneReset'), this, 'clearScene' /*, 'CTRL+ALT+N'*/ );
@@ -130,12 +131,30 @@ class GuiScene {
   }
 
   applyCopyPattern() {
-    if (this._copyPatternType === 0) {
-      this._main.duplicateSelectionLinear(this._copyPatternCount, this._copyPatternSpacing, this._copyPatternAxis);
+    // Prevent multiple simultaneous pattern operations
+    if (this._isPatternOperationInProgress) {
+      console.warn('Pattern operation already in progress, ignoring duplicate request');
       return;
     }
 
-    this._main.duplicateSelectionPolar(this._copyPatternCount, this._copyPatternAngle, this._copyPatternRadius, this._copyPatternAxis);
+    // Validate that we have meshes selected
+    if (!this._main.getSelectedMeshes().length) {
+      window.alert('Please select at least one mesh before applying a pattern.');
+      return;
+    }
+
+    this._isPatternOperationInProgress = true;
+
+    try {
+      if (this._copyPatternType === 0) {
+        this._main.duplicateSelectionLinear(this._copyPatternCount, this._copyPatternSpacing, this._copyPatternAxis);
+      } else {
+        this._main.duplicateSelectionPolar(this._copyPatternCount, this._copyPatternAngle, this._copyPatternRadius, this._copyPatternAxis);
+      }
+    } finally {
+      // Always reset the flag, even if an error occurred
+      this._isPatternOperationInProgress = false;
+    }
   }
 
   selectAll() {
