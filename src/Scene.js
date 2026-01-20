@@ -779,7 +779,15 @@ class Scene {
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes.length);
+
+    // Validate mesh complexity before attempting duplication
+    var validation = this._validatePatternComplexity(meshes, count);
+    if (!validation.canProceed) {
+      alert(validation.message);
+      return;
+    }
+
+    count = validation.safeCount;
     if (count <= 0)
       return;
 
@@ -803,7 +811,7 @@ class Scene {
       }
     } catch (e) {
       console.error('Pattern duplication failed:', e);
-      alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
+      alert('Failed to create pattern copies. The mesh is too complex. Try reducing the number of copies or simplifying the mesh.');
       return;
     }
 
@@ -816,7 +824,15 @@ class Scene {
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes.length);
+
+    // Validate mesh complexity before attempting duplication
+    var validation = this._validatePatternComplexity(meshes, count);
+    if (!validation.canProceed) {
+      alert(validation.message);
+      return;
+    }
+
+    count = validation.safeCount;
     if (count <= 0)
       return;
 
@@ -843,7 +859,7 @@ class Scene {
       }
     } catch (e) {
       console.error('Pattern duplication failed:', e);
-      alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
+      alert('Failed to create pattern copies. The mesh is too complex. Try reducing the number of copies or simplifying the mesh.');
       return;
     }
 
@@ -883,6 +899,69 @@ class Scene {
     if (idx !== 0 && idx !== 1 && idx !== 2)
       return 2;
     return idx;
+  }
+
+  _validatePatternComplexity(meshes, requestedCount) {
+    var totalVertices = 0;
+    var totalFaces = 0;
+    var meshCount = meshes.length;
+
+    // Calculate total complexity of selected meshes
+    for (var i = 0; i < meshes.length; ++i) {
+      totalVertices += meshes[i].getNbVertices();
+      totalFaces += meshes[i].getNbFaces();
+    }
+
+    var avgVertices = totalVertices / meshCount;
+    var avgFaces = totalFaces / meshCount;
+
+    // Define complexity thresholds
+    var SIMPLE_MESH_VERTICES = 5000;
+    var COMPLEX_MESH_VERTICES = 50000;
+    var MAX_TOTAL_VERTICES = 100000; // Maximum total vertices allowed in pattern operation
+
+    // Calculate safe count based on mesh complexity
+    var maxCopiesPerMesh;
+    if (avgVertices < SIMPLE_MESH_VERTICES) {
+      maxCopiesPerMesh = 10; // Simple meshes: allow up to 10 copies per mesh
+    } else if (avgVertices < COMPLEX_MESH_VERTICES) {
+      maxCopiesPerMesh = 3; // Medium complexity: allow up to 3 copies per mesh
+    } else {
+      maxCopiesPerMesh = 1; // Complex meshes: allow only 1 copy per mesh
+    }
+
+    // Further limit based on total vertices that would be created
+    var estimatedTotalVertices = totalVertices * requestedCount;
+    if (estimatedTotalVertices > MAX_TOTAL_VERTICES) {
+      var reducedCount = Math.floor(MAX_TOTAL_VERTICES / totalVertices);
+      if (reducedCount < 1) {
+        return {
+          canProceed: false,
+          safeCount: 0,
+          message: 'Cannot create pattern: Selected meshes are too complex (total vertices: ' + totalVertices.toLocaleString() + '). Try selecting fewer or simpler meshes.'
+        };
+      }
+      maxCopiesPerMesh = Math.min(maxCopiesPerMesh, Math.floor(reducedCount / meshCount));
+    }
+
+    var safeCount = Math.min(requestedCount, maxCopiesPerMesh);
+
+    // Calculate total copies that will be created
+    var totalCopies = safeCount * meshCount;
+
+    if (totalCopies === 0) {
+      return {
+        canProceed: false,
+        safeCount: 0,
+        message: 'Cannot create pattern: Selected meshes are too complex. Try selecting simpler meshes or fewer meshes.'
+      };
+    }
+
+    return {
+      canProceed: true,
+      safeCount: safeCount,
+      message: null
+    };
   }
 
   _getPatternCount(count, meshCount) {
