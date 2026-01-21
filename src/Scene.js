@@ -575,15 +575,10 @@ class Scene {
     this.setMesh(mesh);
   }
 
-  /**
-   * Unified Pattern Logic
-   * Handles both simple Linear patterns and nested Grid/Array patterns.
-   */
   createPattern(patterns, useWorldReference) {
     if (!this._selectMeshes.length) return;
     if (!patterns || !patterns.length) return;
 
-    // 1. Safety Check: Total Copies
     var totalCopies = 1;
     for (var p = 0; p < patterns.length; ++p) {
       totalCopies *= Math.max(1, Math.floor(patterns[p].count));
@@ -594,7 +589,6 @@ class Scene {
       if (!window.confirm(`Warning: This will create ${totalCopies} copies. Continue?`)) return;
     }
 
-    // 2. Loop Logic
     var currentGeneration = this._selectMeshes.slice();
     var allNewCopies = []; 
 
@@ -624,14 +618,15 @@ class Scene {
              var copy = this._createMeshCopy(baseMesh);
 
              if (useWorldReference) {
-               // World Mode: Rotate around global center 0,0,0
                mat4.mul(copy.getMatrix(), accumMatrix, copy.getMatrix());
                mat4.mul(copy.getEditMatrix(), accumMatrix, copy.getEditMatrix());
              } else {
-               // Local Mode: Standard relative transformation
                mat4.mul(copy.getMatrix(), copy.getMatrix(), accumMatrix);
                mat4.mul(copy.getEditMatrix(), copy.getEditMatrix(), accumMatrix);
              }
+
+             // FIX: Actualizar Bounding Box inmediatamente para que el picking (selección) funcione
+             copy.updateMatrices(this._camera);
 
              nextGeneration.push(copy); 
              allNewCopies.push(copy);   
@@ -667,10 +662,15 @@ class Scene {
     if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD instanceof Uint32Array ? new Uint32Array(srcData._UVfacesABCD) : new Uint16Array(srcData._UVfacesABCD);
     if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
 
-    copy.copyTransformData(mesh);
+    // FIX: Deep Copy de matrices para independencia total
+    mat4.copy(copy.getMatrix(), mesh.getMatrix());
+    mat4.copy(copy.getEditMatrix(), mesh.getEditMatrix());
+    vec3.copy(copy.getCenter(), mesh.getCenter());
+
     copy.copyRenderConfig(mesh);
     copy.computeOctree(); 
-    copy.updateCenter();
+    
+    // Inicialización de renderizado
     copy.initRender();
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
