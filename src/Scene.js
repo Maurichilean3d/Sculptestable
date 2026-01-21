@@ -808,66 +808,78 @@ class Scene {
     return mat;
   }
 
-  /**
-   * Optimized mesh copy that avoids expensive re-computation of topology.
-   * This fixes the browser freeze/crash when creating multiple patterns.
-   */
   _createMeshCopy(mesh) {
-    // 1. Setup the basic mesh object
     var copy = new MeshStatic(mesh.getGL());
     
-    // 2. Deep copy of geometry buffers
-    copy.setVertices(mesh.getVertices().slice());
-    copy.setFaces(mesh.getFaces().slice());
-    copy.setColors(mesh.getColors().slice());
-    copy.setMaterials(mesh.getMaterials().slice());
+    // Manual Deep Copy of MeshData
+    var srcData = mesh.getMeshData();
+    var dstData = copy.getMeshData();
+
+    // 1. Basic Geometry
+    if (srcData._verticesXYZ) dstData._verticesXYZ = srcData._verticesXYZ.slice();
+    if (srcData._normalsXYZ) dstData._normalsXYZ = srcData._normalsXYZ.slice();
+    if (srcData._colorsRGB) dstData._colorsRGB = srcData._colorsRGB.slice();
+    if (srcData._materialsPBR) dstData._materialsPBR = srcData._materialsPBR.slice();
+    if (srcData._facesABCD) dstData._facesABCD = srcData._facesABCD.slice();
+
+    dstData._nbVertices = srcData._nbVertices;
+    dstData._nbFaces = srcData._nbFaces;
+
+    // 2. UVs (Copy directly to avoid re-computation)
+    if (srcData._texCoordsST) dstData._texCoordsST = srcData._texCoordsST.slice();
+    if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD.slice();
+    if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
+    dstData._nbTexCoords = srcData._nbTexCoords;
+
+    // 3. Topology (The heavy stuff - copy directly)
+    if (srcData._vertRingFace) dstData._vertRingFace = srcData._vertRingFace.slice();
+    if (srcData._vrvStartCount) dstData._vrvStartCount = srcData._vrvStartCount.slice();
+    if (srcData._vrfStartCount) dstData._vrfStartCount = srcData._vrfStartCount.slice();
+    if (srcData._vertRingVert) dstData._vertRingVert = srcData._vertRingVert.slice();
+    if (srcData._vertOnEdge) dstData._vertOnEdge = srcData._vertOnEdge.slice();
     
-    // Handle UVs carefully
-    if (mesh.hasUV()) {
-      // Use existing method for UVs as it handles duplicates logic
-      copy.initTexCoordsDataFromOBJData(mesh.getTexCoords(), mesh.getFacesTexCoord());
-    }
+    if (srcData._edges) dstData._edges = srcData._edges.slice();
+    if (srcData._faceEdges) dstData._faceEdges = srcData._faceEdges.slice();
+    if (srcData._facesToTriangles) dstData._facesToTriangles = srcData._facesToTriangles.slice();
+    if (srcData._trianglesABC) dstData._trianglesABC = srcData._trianglesABC.slice();
+    if (srcData._UVtrianglesABC) dstData._UVtrianglesABC = srcData._UVtrianglesABC.slice();
 
-    // 3. Initialize arrays but DO NOT compute topology yet
-    copy.initColorsAndMaterials();
-    copy.allocateArrays();
+    // 4. Spatial Data
+    if (srcData._faceNormalsXYZ) dstData._faceNormalsXYZ = srcData._faceNormalsXYZ.slice();
+    if (srcData._faceCentersXYZ) dstData._faceCentersXYZ = srcData._faceCentersXYZ.slice();
+    if (srcData._faceBoxes) dstData._faceBoxes = srcData._faceBoxes.slice();
 
-    // 4. FAST PATH: Copy topology directly from source mesh instead of recalculating
-    // This turns an O(N) operation per copy into an O(1) memory copy
-    var origData = mesh.getMeshData();
-    var copyData = copy.getMeshData();
+    // 5. DrawArrays Cache (Crucial for performance)
+    if (srcData._DAverticesXYZ) dstData._DAverticesXYZ = srcData._DAverticesXYZ.slice();
+    if (srcData._DAnormalsXYZ) dstData._DAnormalsXYZ = srcData._DAnormalsXYZ.slice();
+    if (srcData._DAcolorsRGB) dstData._DAcolorsRGB = srcData._DAcolorsRGB.slice();
+    if (srcData._DAmaterialsPBR) dstData._DAmaterialsPBR = srcData._DAmaterialsPBR.slice();
+    if (srcData._DAtexCoordsST) dstData._DAtexCoordsST = srcData._DAtexCoordsST.slice();
 
-    if (origData._vertRingFace) copyData._vertRingFace = origData._vertRingFace.slice();
-    if (origData._vrvStartCount) copyData._vrvStartCount = origData._vrvStartCount.slice();
-    if (origData._vrfStartCount) copyData._vrfStartCount = origData._vrfStartCount.slice();
-    // Flags need to be reset, not copied directly to avoid conflict logic, 
-    // but allocating them is handled by allocateArrays()
+    // 6. Flags & Temp Arrays (Allocate new to avoid shared state issues)
+    dstData._vertTagFlags = new Int32Array(dstData._nbVertices);
+    dstData._vertSculptFlags = new Int32Array(dstData._nbVertices);
+    dstData._vertStateFlags = new Int32Array(dstData._nbVertices);
+    dstData._vertProxy = new Float32Array(dstData._nbVertices * 3);
+    dstData._facesTagFlags = new Int32Array(dstData._nbFaces);
     
-    if (origData._vertOnEdge) copyData._vertOnEdge = origData._vertOnEdge.slice();
-    if (origData._edges) copyData._edges = origData._edges.slice();
-    if (origData._faceEdges) copyData._faceEdges = origData._faceEdges.slice();
-    if (origData._faceNormalsXYZ) copyData._faceNormalsXYZ = origData._faceNormalsXYZ.slice();
-    if (origData._faceCentersXYZ) copyData._faceCentersXYZ = origData._faceCentersXYZ.slice();
-    if (origData._faceBoxes) copyData._faceBoxes = origData._faceBoxes.slice();
-    if (origData._trianglesABC) copyData._trianglesABC = origData._trianglesABC.slice();
-    if (origData._facesToTriangles) copyData._facesToTriangles = origData._facesToTriangles.slice();
-
-    // 5. Compute only what's necessary (Octree and Center)
+    // 7. Octree (Recompute is safer and fast enough)
+    dstData._facePosInLeaf = new Uint32Array(dstData._nbFaces);
+    dstData._faceLeaf = new Array(dstData._nbFaces);
     copy.updateCenter();
-    // We still recompute octree as it contains object references that are hard to clone deeply
-    copy.computeOctree(); 
+    copy.computeOctree();
 
-    // 6. Finalize rendering setup
+    // 8. Transform & Render Config
     copy.copyTransformData(mesh);
     copy.copyRenderConfig(mesh);
-    copy.initRender();
-
-    // Push to GPU
-    if (copy.getRenderData()) {
-      copy.updateGeometryBuffers();
-      copy.updateDuplicateColorsAndMaterials();
-    }
     
+    // 9. Initialize Render (Upload to GPU)
+    copy.initRender();
+    if (copy.getRenderData()) {
+        copy.updateGeometryBuffers();
+        copy.updateDuplicateColorsAndMaterials();
+    }
+
     return copy;
   }
 
@@ -875,189 +887,4 @@ class Scene {
     if (!this._selectMeshes.length)
       return;
 
-    var meshes = this._selectMeshes.slice();
-    var plan = this._getPatternPlan(count, meshes);
-    if (!plan || plan.count <= 0)
-      return;
-
-    count = plan.count;
-    var copies = [];
-
-    try {
-      var transforms = new Array(meshes.length);
-      for (var t = 0; t < meshes.length; ++t)
-        transforms[t] = transformFactory(meshes[t]);
-
-      for (var step = 1; step <= count; ++step) {
-        for (var i = 0; i < meshes.length; ++i) {
-          var baseMesh = meshes[i];
-          var copy = this._createMeshCopy(baseMesh);
-          this._applyMeshTransform(copy, transforms[i]());
-          copies.push(copy);
-        }
-      }
-
-    } catch (e) {
-      console.error('Pattern duplication failed:', e);
-      window.alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
-      return;
-    }
-
-    this._addMeshes(copies, meshes[meshes.length - 1]);
-  }
-
-  _buildLinearPattern(axis, spacing) {
-    var stepOffset = vec3.scale([0, 0, 0], axis, spacing);
-    var stepTransform = this._createTranslationMatrix(stepOffset);
-    return function () {
-      var current = mat4.create();
-      return function () {
-        mat4.mul(current, stepTransform, current);
-        return mat4.clone(current);
-      };
-    }.bind(this);
-  }
-
-  _buildPolarPattern(axis, offset, angleDeg) {
-    return function (baseMesh) {
-      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
-      var angle = angleDeg * Math.PI / 180.0;
-      var stepTransform = this._createPolarMatrix(baseCenter, axis, offset, angle);
-      var current = mat4.create();
-      return function () {
-        mat4.mul(current, stepTransform, current);
-        return mat4.clone(current);
-      };
-    }.bind(this);
-  }
-
-  _addMeshes(meshes, selectMesh) {
-    if (!meshes.length)
-      return;
-
-    Array.prototype.push.apply(this._meshes, meshes);
-    this._stateManager.pushStateAdd(meshes);
-    if (selectMesh !== undefined)
-      this.setMesh(selectMesh);
-    else
-      this.setMesh(meshes[meshes.length - 1]);
-  }
-
-  _createPolarMatrix(center, axis, offset, angle) {
-    var mat = mat4.create();
-    if (offset[0] || offset[1] || offset[2])
-      mat4.translate(mat, mat, offset);
-    mat4.translate(mat, mat, center);
-    mat4.rotate(mat, mat, angle, axis);
-    mat4.translate(mat, mat, [-center[0], -center[1], -center[2]]);
-    return mat;
-  }
-
-  _getAxisVector(axisIndex) {
-    if (axisIndex === 0) return [1, 0, 0];
-    if (axisIndex === 1) return [0, 1, 0];
-    return [0, 0, 1];
-  }
-
-  _getAxisIndex(axisIndex) {
-    var idx = Math.round(Number(axisIndex));
-    if (idx !== 0 && idx !== 1 && idx !== 2)
-      return 2;
-    return idx;
-  }
-
-  _getPatternStats(meshes) {
-    var meshCount = meshes.length;
-    if (!meshCount) return null;
-
-    var totalTriangles = 0;
-    var totalVertices = 0;
-    
-    // Safety check for valid mesh data
-    for (var i = 0; i < meshCount; ++i) {
-      if (!meshes[i] || !meshes[i].getNbTriangles) continue;
-      totalTriangles += meshes[i].getNbTriangles();
-      totalVertices += meshes[i].getNbVertices();
-    }
-
-    if (totalTriangles === 0) return null;
-
-    return {
-      meshCount: meshCount,
-      totalTriangles: totalTriangles,
-      totalVertices: totalVertices,
-      totalBytes: totalVertices * 64 // Rough estimation
-    };
-  }
-
-  _getPatternPlan(count, meshes) {
-    var safeCount = Math.floor(Number(count));
-    if (!Number.isFinite(safeCount) || safeCount <= 0) return null;
-
-    if (meshes.length > 1 && meshes.length === this._meshes.length) {
-      window.alert('Pattern duplication uses the current selection. Please select only the mesh(es) you want to duplicate.');
-      return null;
-    }
-
-    var stats = this._getPatternStats(meshes);
-    if (!stats) return null;
-
-    // Safety Limits
-    var maxTotalTriangles = 3000000; // Increased limit thanks to optimized copy
-    var maxTotalVertices = 3000000;
-    
-    var maxByTriangles = Math.floor(maxTotalTriangles / stats.totalTriangles);
-    var maxByVertices = Math.floor(maxTotalVertices / stats.totalVertices);
-
-    var maxAllowed = Math.min(safeCount, 50, maxByTriangles, maxByVertices);
-
-    if (maxAllowed < 1) {
-       window.alert('Selection is too dense to duplicate (Memory limit). Try decimating first.');
-       return null;
-    }
-
-    if (safeCount > maxAllowed) {
-       console.warn('Reduced copy count from ' + safeCount + ' to ' + maxAllowed + ' to prevent crash.');
-    }
-
-    return {
-      count: maxAllowed,
-      stats: stats
-    };
-  }
-
-  _getFiniteNumber(value) {
-    var num = Number(value);
-    return Number.isFinite(num) ? num : 0;
-  }
-
-  _getPolarOffset(radius, axisIndex) {
-    if (!radius)
-      return [0, 0, 0];
-    if (axisIndex === 0) return [0, radius, 0];
-    return [radius, 0, 0];
-  }
-
-  onLoadAlphaImage(img, name, tool) {
-    var can = document.createElement('canvas');
-    can.width = img.width;
-    can.height = img.height;
-
-    var ctx = can.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    var u8rgba = ctx.getImageData(0, 0, img.width, img.height).data;
-    var u8lum = u8rgba.subarray(0, u8rgba.length / 4);
-    for (var i = 0, j = 0, n = u8lum.length; i < n; ++i, j += 4)
-      u8lum[i] = Math.round((u8rgba[j] + u8rgba[j + 1] + u8rgba[j + 2]) / 3);
-
-    name = Picking.addAlpha(u8lum, img.width, img.height, name)._name;
-
-    var entry = {};
-    entry[name] = name;
-    this.getGui().addAlphaOptions(entry);
-    if (tool && tool._ctrlAlpha)
-      tool._ctrlAlpha.setValue(name);
-  }
-}
-
-export default Scene;
+    var meshes = this._selectMes
