@@ -23,10 +23,9 @@ var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
 
-// Constantes para el Gizmo de Orientación
-var GIZMO_VIEWPORT_SIZE = 100; // Tamaño en píxeles
-var GIZMO_OFFSET_X = 10;
-var GIZMO_OFFSET_Y = 10;
+// Configuración del Gizmo de Orientación
+var GIZMO_SIZE_PX = 120; // Tamaño en píxeles
+var GIZMO_PADDING = 10;  // Separación del borde
 
 class Scene {
 
@@ -75,8 +74,8 @@ class Scene {
     this._autoRotatePivot = 0;
     this._autoRotateLastTime = null;
 
-    // Orientation Gizmo Meshes
-    this._gizmoArrows = []; 
+    // Array para guardar las flechas del gizmo
+    this._gizmoMeshes = [];
   }
 
   start() {
@@ -91,7 +90,7 @@ class Scene {
     this._grid = Primitives.createGrid(this._gl);
     this.initGrid();
     
-    // Inicializar el Gizmo de Orientación (Flechas RGB)
+    // Inicializar el Gizmo de Orientación
     this._initOrientationGizmo();
 
     this.loadTextures();
@@ -102,30 +101,67 @@ class Scene {
     else this.addSphere();
   }
 
+  // --- Lógica del Gizmo de Orientación ---
   _initOrientationGizmo() {
     var gl = this._gl;
-    // X Axis (Rojo)
-    var arrowX = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
-    arrowX.setFlatColor([0.8, 0.1, 0.1]); // Rojo
+    // Flecha X (Rojo)
+    var arrowX = Primitives.createArrow(gl, 0.1, 1.2, 0.4, 0.3);
+    arrowX.setFlatColor([0.9, 0.1, 0.1]);
     var matX = arrowX.getMatrix();
-    mat4.rotateZ(matX, matX, -Math.PI / 2); // Orientar en X
-    
-    // Y Axis (Verde)
-    var arrowY = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
-    arrowY.setFlatColor([0.1, 0.8, 0.1]); // Verde
-    // Por defecto apunta arriba (Y)
+    mat4.rotateZ(matX, matX, -Math.PI / 2);
 
-    // Z Axis (Azul)
-    var arrowZ = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
-    arrowZ.setFlatColor([0.1, 0.1, 0.8]); // Azul
+    // Flecha Y (Verde)
+    var arrowY = Primitives.createArrow(gl, 0.1, 1.2, 0.4, 0.3);
+    arrowY.setFlatColor([0.1, 0.9, 0.1]);
+    // Ya apunta hacia arriba por defecto
+
+    // Flecha Z (Azul)
+    var arrowZ = Primitives.createArrow(gl, 0.1, 1.2, 0.4, 0.3);
+    arrowZ.setFlatColor([0.1, 0.1, 0.9]);
     var matZ = arrowZ.getMatrix();
-    mat4.rotateX(matZ, matZ, Math.PI / 2); // Orientar en Z
+    mat4.rotateX(matZ, matZ, Math.PI / 2);
 
-    this._gizmoArrows = [arrowX, arrowY, arrowZ];
+    this._gizmoMeshes = [arrowX, arrowY, arrowZ];
     
-    // Configurar Shader Flat para que no le afecten luces complejas
-    this._gizmoArrows.forEach(m => m.setShaderType(Enums.Shader.FLAT));
+    // Usar shader plano para que se vean siempre brillantes
+    this._gizmoMeshes.forEach(m => m.setShaderType(Enums.Shader.FLAT));
   }
+
+  _drawOrientationGizmo() {
+    var gl = this._gl;
+    var cw = this._canvasWidth;
+    var ch = this._canvasHeight;
+
+    // Calcular posición en la esquina superior derecha
+    var viewportX = cw - GIZMO_SIZE_PX - GIZMO_PADDING;
+    var viewportY = ch - GIZMO_SIZE_PX - GIZMO_PADDING;
+
+    // Ajustar viewport pequeño
+    gl.viewport(viewportX, viewportY, GIZMO_SIZE_PX, GIZMO_SIZE_PX);
+    
+    // Limpiar depth buffer para dibujar encima de la escena
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+
+    // Crear cámara temporal que imita la rotación de la principal
+    var gizmoCam = new Camera(this);
+    // Copiar la matriz de vista (rotación)
+    mat4.copy(gizmoCam._view, this._camera._view);
+    
+    // Eliminar traslación (para que rote sobre su propio eje)
+    gizmoCam._view[12] = 0;
+    gizmoCam._view[13] = 0;
+    gizmoCam._view[14] = -4.0; // Alejar un poco para ver las flechas
+
+    // Renderizar flechas
+    for (var i = 0; i < this._gizmoMeshes.length; i++) {
+        this._gizmoMeshes[i].updateMatrices(gizmoCam);
+        this._gizmoMeshes[i].render(this);
+    }
+
+    // Restaurar viewport original
+    gl.viewport(0, 0, cw, ch);
+  }
+  // -------------------------------------
 
   addModelURL(url) {
     var fileType = this.getFileType(url);
@@ -156,7 +192,6 @@ class Scene {
   getStateManager() { return this._stateManager; }
   setMesh(mesh) { return this.setOrUnsetMesh(mesh); }
   setCanvasCursor(style) { this._canvas.style.cursor = style; }
-  
   setAutoRotateEnabled(enabled) {
     this._autoRotateEnabled = enabled;
     this._autoRotateLastTime = null;
@@ -295,8 +330,6 @@ class Scene {
     this.updateMatricesAndSort();
     var gl = this._gl;
     if (!gl) return;
-    
-    // 1. Dibujar Escena Principal
     if (this._drawFullScene) this._drawScene();
     
     gl.disable(gl.DEPTH_TEST);
@@ -308,44 +341,11 @@ class Scene {
     
     this._sculptManager.postRender();
 
-    // 2. DIBUJAR GIZMO DE ORIENTACIÓN (Esquina Superior Derecha)
+    // DIBUJAR GIZMO AL FINAL (ENCIMA DE TODO)
     this._drawOrientationGizmo();
 
     if (this._autoRotateEnabled && this._mesh) this.render();
   }
-
-  // --- Nueva función para el Gizmo ---
-  _drawOrientationGizmo() {
-    var gl = this._gl;
-    var cw = this._canvasWidth;
-    var ch = this._canvasHeight;
-
-    // Configurar viewport pequeño en la esquina superior derecha
-    gl.viewport(cw - GIZMO_VIEWPORT_SIZE - GIZMO_OFFSET_X, ch - GIZMO_VIEWPORT_SIZE - GIZMO_OFFSET_Y, GIZMO_VIEWPORT_SIZE, GIZMO_VIEWPORT_SIZE);
-    
-    // Limpiar depth para que se dibuje encima de todo
-    gl.clear(gl.DEPTH_BUFFER_BIT);
-
-    // Crear una cámara temporal que solo rota
-    // Usamos una cámara fija alejada para ver el gizmo
-    var gizmoCam = new Camera(this); 
-    gizmoCam._view = mat4.clone(this._camera._view); // Copiar rotación de la cámara principal
-    
-    // Anular la traslación de la cámara (queremos que rote sobre sí misma 0,0,0)
-    gizmoCam._view[12] = 0;
-    gizmoCam._view[13] = 0;
-    gizmoCam._view[14] = -5.0; // Alejar un poco para ver las flechas
-
-    // Renderizar flechas
-    this._gizmoArrows.forEach(arrow => {
-        arrow.updateMatrices(gizmoCam);
-        arrow.render(this);
-    });
-
-    // Restaurar viewport original
-    gl.viewport(0, 0, cw, ch);
-  }
-  // -----------------------------------
 
   _drawScene() {
     var gl = this._gl;
