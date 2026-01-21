@@ -819,9 +819,22 @@ class Scene {
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes);
-    if (count <= 0)
+    var plan = this._getPatternPlan(count, meshes);
+    if (!plan || plan.count <= 0)
       return;
+
+    count = plan.count;
+    var stats = plan.stats;
+    var estimatedBytes = stats.totalBytes ? stats.totalBytes * count * plan.byteMultiplier : 0;
+    console.info('Pattern preflight:', {
+      meshes: stats.meshCount,
+      copies: meshes.length * count,
+      triangles: stats.totalTriangles,
+      vertices: stats.totalVertices,
+      estimatedBytes: estimatedBytes,
+      estimatedTriangles: stats.totalTriangles * count,
+      estimatedVertices: stats.totalVertices * count
+    });
 
     var copies = [];
 
@@ -910,67 +923,133 @@ class Scene {
     return idx;
   }
 
-  _getPatternCount(count, meshes) {
-    var safeCount = Math.floor(Number(count));
-    if (!Number.isFinite(safeCount) || safeCount <= 0)
-      return 0;
-
+  _getPatternStats(meshes) {
     var meshCount = meshes.length;
     if (!meshCount)
-      return 0;
+      return null;
 
     // Validate all meshes before proceeding
     for (var j = 0; j < meshCount; ++j) {
-      if (!meshes[j] || typeof meshes[j].getNbTriangles !== 'function') {
+      if (!meshes[j] || typeof meshes[j].getNbTriangles !== 'function' || typeof meshes[j].getNbVertices !== 'function') {
         console.error('Invalid mesh detected at index', j);
         window.alert('One or more selected meshes are invalid. Please reselect and try again.');
-        return 0;
+        return null;
       }
     }
 
-    var maxCopies = 20;
-    var maxPerMesh = Math.floor(maxCopies / meshCount);
-    if (maxPerMesh < 1)
-      return 0;
-
-    // Calculate total triangles with validation
     var totalTriangles = 0;
+    var totalVertices = 0;
+    var totalBytes = 0;
     for (var i = 0; i < meshCount; ++i) {
       try {
         var nbTriangles = meshes[i].getNbTriangles();
+        var nbVertices = meshes[i].getNbVertices();
+        var meshBytes = this._estimateMeshBytes(meshes[i]);
         if (!Number.isFinite(nbTriangles) || nbTriangles < 0) {
           console.error('Invalid triangle count for mesh', i, ':', nbTriangles);
           window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
-          return 0;
+          return null;
+        }
+        if (!Number.isFinite(nbVertices) || nbVertices < 0) {
+          console.error('Invalid vertex count for mesh', i, ':', nbVertices);
+          window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
+          return null;
         }
         totalTriangles += nbTriangles;
+        totalVertices += nbVertices;
+        totalBytes += meshBytes;
       } catch (e) {
-        console.error('Error getting triangle count for mesh', i, ':', e);
+        console.error('Error getting mesh stats for mesh', i, ':', e);
         window.alert('Error analyzing mesh geometry. Please try with different meshes.');
-        return 0;
+        return null;
       }
     }
 
-    // Safety check for total triangles
     if (totalTriangles === 0) {
       window.alert('Selected meshes have no triangles. Cannot duplicate empty meshes.');
-      return 0;
+      return null;
     }
+
+    return {
+      meshCount: meshCount,
+      totalTriangles: totalTriangles,
+      totalVertices: totalVertices,
+      totalBytes: totalBytes
+    };
+  }
+
+  _estimateMeshBytes(mesh) {
+    if (!mesh || typeof mesh.getMeshData !== 'function')
+      return 0;
+
+    var meshData = mesh.getMeshData();
+    if (!meshData)
+      return 0;
+
+    var bytes = 0;
+    for (var key in meshData) {
+      if (!Object.prototype.hasOwnProperty.call(meshData, key))
+        continue;
+
+      var value = meshData[key];
+      if (value && ArrayBuffer.isView(value) && Number.isFinite(value.byteLength))
+        bytes += value.byteLength;
+    }
+    return bytes;
+  }
+
+  _getPatternPlan(count, meshes) {
+    var safeCount = Math.floor(Number(count));
+    if (!Number.isFinite(safeCount) || safeCount <= 0)
+      return null;
+
+    if (meshes.length > 1 && meshes.length === this._meshes.length) {
+      window.alert('Pattern duplication uses the current selection. Please select only the mesh(es) you want to duplicate.');
+      return null;
+    }
+
+    var stats = this._getPatternStats(meshes);
+    if (!stats)
+      return null;
+
+    var maxCopies = 20;
+    var maxPerMesh = Math.floor(maxCopies / stats.meshCount);
+    if (maxPerMesh < 1)
+      return null;
 
     var maxTotalTriangles = 1000000;
-    var maxByTriangles = Math.floor(maxTotalTriangles / totalTriangles);
+    var maxByTriangles = Math.floor(maxTotalTriangles / stats.totalTriangles);
     if (maxByTriangles < 1) {
       window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
-      return 0;
+      return null;
     }
 
-    var maxAllowed = Math.min(safeCount, maxPerMesh, maxByTriangles);
+    var maxTotalVertices = 2000000;
+    var maxByVertices = Math.floor(maxTotalVertices / stats.totalVertices);
+    if (maxByVertices < 1) {
+      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
+      return null;
+    }
+
+    var byteMultiplier = 2;
+    var maxTotalBytes = 256 * 1024 * 1024;
+    var maxByBytes = stats.totalBytes ? Math.floor(maxTotalBytes / (stats.totalBytes * byteMultiplier)) : safeCount;
+    if (maxByBytes < 1) {
+      window.alert('Selected meshes are too large to duplicate safely. Try decimating or reducing the selection.');
+      return null;
+    }
+
+    var maxAllowed = Math.min(safeCount, maxPerMesh, maxByTriangles, maxByVertices, maxByBytes);
     if (safeCount > maxAllowed) {
       console.warn('Pattern duplication reduced from', safeCount, 'to', maxAllowed, 'to avoid excessive geometry.');
-      console.info('Mesh count:', meshCount, 'Total triangles:', totalTriangles, 'Max copies allowed:', maxAllowed);
+      console.info('Mesh count:', stats.meshCount, 'Total triangles:', stats.totalTriangles, 'Total vertices:', stats.totalVertices, 'Max copies allowed:', maxAllowed);
     }
 
-    return maxAllowed;
+    return {
+      count: maxAllowed,
+      stats: stats,
+      byteMultiplier: byteMultiplier
+    };
   }
 
   _getFiniteNumber(value) {
