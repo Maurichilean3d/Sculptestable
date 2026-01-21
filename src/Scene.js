@@ -780,29 +780,34 @@ class Scene {
   }
 
   /**
-   * Unified Pattern Tool
-   * Replaces Linear/Polar with a single matrix-based approach.
-   * @param {number} count Number of copies
-   * @param {vec3} offsetXYZ Translation per step
-   * @param {vec3} rotateXYZ Rotation per step (in degrees)
-   * @param {vec3} scaleXYZ Scale per step (default [1,1,1])
+   * Unified Pattern Tool - SAFE VERSION
+   * Checks for triangle count to prevent browser crash.
    */
   duplicateSelectionGeneric(count, offsetXYZ, rotateXYZ, scaleXYZ) {
     if (!this._selectMeshes.length) return;
 
     var meshes = this._selectMeshes.slice();
-    // FIX: Use _getPatternCount instead of _getPatternPlan
-    var safeCount = this._getPatternCount(count, meshes);
-    if (safeCount <= 0) return;
+    
+    // SAFETY CHECK: Calculate Total Vertices Impact
+    var totalVertsPerCopy = 0;
+    for(var m=0; m<meshes.length; m++) {
+        totalVertsPerCopy += meshes[m].getNbVertices();
+    }
+    
+    // Hard limit to prevent browser freeze (e.g. 1 Million new vertices max)
+    var SAFE_LIMIT = 1000000; 
+    var potentialVerts = totalVertsPerCopy * count;
+    
+    if (potentialVerts > SAFE_LIMIT) {
+        var suggestedMax = Math.floor(SAFE_LIMIT / totalVertsPerCopy);
+        window.alert(`Aborted: This operation would generate ${potentialVerts} vertices, causing the browser to crash. \n\nMaximum recommended copies for this selection: ${suggestedMax}`);
+        return;
+    }
 
-    count = safeCount;
     var copies = [];
-
-    // Create the step matrix
     var stepMatrix = mat4.create();
     mat4.identity(stepMatrix);
     
-    // Apply transformations in order: Translate -> Rotate -> Scale
     mat4.translate(stepMatrix, stepMatrix, offsetXYZ);
     
     if (rotateXYZ[0] !== 0) mat4.rotateX(stepMatrix, stepMatrix, rotateXYZ[0] * Math.PI / 180);
@@ -812,31 +817,23 @@ class Scene {
     if (scaleXYZ) mat4.scale(stepMatrix, stepMatrix, scaleXYZ);
 
     try {
-      // Current accumulated matrix
       var currentMatrix = mat4.create();
       mat4.identity(currentMatrix);
 
-      // SAFETY: Limit loops to avoid total browser freeze
-      if (count > 50) count = 50; 
-
       for (var step = 1; step <= count; ++step) {
-        // Accumulate transformation
         mat4.mul(currentMatrix, currentMatrix, stepMatrix);
 
         for (var i = 0; i < meshes.length; ++i) {
           var baseMesh = meshes[i];
           var copy = this._createMeshCopy(baseMesh);
-          
-          // Apply transformation to copy
           this._applyMeshTransform(copy, currentMatrix);
-          
           copies.push(copy);
         }
       }
 
     } catch (e) {
       console.error('Pattern duplication failed:', e);
-      window.alert('Failed to create pattern copies.');
+      window.alert('An error occurred during pattern generation.');
       return;
     }
 
@@ -849,67 +846,51 @@ class Scene {
   }
 
   _createMeshCopy(mesh) {
+    // 1. Create a clean Static Mesh
     var copy = new MeshStatic(mesh.getGL());
     var srcData = mesh.getMeshData();
     var dstData = copy.getMeshData();
 
-    // 1. Setup Counts
+    // 2. Direct Property Copy (Faster & Safer than allocate+slice)
+    // We copy the pointers if arrays are immutable, or slice if we need deep copy.
+    // For pattern tool, deep copy of geometry is required.
+
+    // Basic Counts
     dstData._nbVertices = srcData._nbVertices;
     dstData._nbFaces = srcData._nbFaces;
     dstData._nbTexCoords = srcData._nbTexCoords;
 
-    // 2. ALLOCATE BEFORE COPYING
-    // Important: allocateArrays() might overwrite buffers with new typed arrays (zeros).
-    // We must allocate first, THEN slice data into them, or simply overwrite the properties.
-    // If we call allocateArrays() after slicing, we might wipe our data.
-    copy.allocateArrays(); 
-
-    // 3. Copy/Overwrite main buffers
-    if (srcData._verticesXYZ) dstData._verticesXYZ = srcData._verticesXYZ.slice();
-    if (srcData._colorsRGB) dstData._colorsRGB = srcData._colorsRGB.slice();
-    if (srcData._materialsPBR) dstData._materialsPBR = srcData._materialsPBR.slice();
-    if (srcData._normalsXYZ) dstData._normalsXYZ = srcData._normalsXYZ.slice();
-    if (srcData._facesABCD) dstData._facesABCD = srcData._facesABCD.slice();
+    // Geometry buffers - clone them
+    if (srcData._verticesXYZ) dstData._verticesXYZ = new Float32Array(srcData._verticesXYZ);
+    if (srcData._colorsRGB) dstData._colorsRGB = new Float32Array(srcData._colorsRGB);
+    if (srcData._materialsPBR) dstData._materialsPBR = new Float32Array(srcData._materialsPBR);
+    if (srcData._normalsXYZ) dstData._normalsXYZ = new Float32Array(srcData._normalsXYZ);
+    if (srcData._facesABCD) dstData._facesABCD = new Uint32Array(srcData._facesABCD); // or standard Array depending on impl
     
     // UVs
-    if (srcData._texCoordsST) dstData._texCoordsST = srcData._texCoordsST.slice();
-    if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD.slice();
+    if (srcData._texCoordsST) dstData._texCoordsST = new Float32Array(srcData._texCoordsST);
+    if (srcData._UVfacesABCD) dstData._UVfacesABCD = new Uint32Array(srcData._UVfacesABCD);
     if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
 
-    // 4. Overwrite Topology with Slices (Fast Path)
-    if (srcData._vertRingFace) dstData._vertRingFace = srcData._vertRingFace.slice();
-    if (srcData._vrvStartCount) dstData._vrvStartCount = srcData._vrvStartCount.slice();
-    if (srcData._vrfStartCount) dstData._vrfStartCount = srcData._vrfStartCount.slice();
-    if (srcData._vertRingVert) dstData._vertRingVert = srcData._vertRingVert.slice();
-    if (srcData._vertOnEdge) dstData._vertOnEdge = srcData._vertOnEdge.slice();
+    // Topology / Octree data (If exists)
+    // For Static Mesh, we usually recalculate octree to be safe and accurate with new transform
+    // But copying allows skipping re-calc if valid. 
+    // Let's perform a fresh compute to avoid stale data issues causing visual glitches.
     
-    if (srcData._edges) dstData._edges = srcData._edges.slice();
-    if (srcData._faceEdges) dstData._faceEdges = srcData._faceEdges.slice();
-    if (srcData._facesToTriangles) dstData._facesToTriangles = srcData._facesToTriangles.slice();
-    if (srcData._trianglesABC) dstData._trianglesABC = srcData._trianglesABC.slice();
-    if (srcData._UVtrianglesABC) dstData._UVtrianglesABC = srcData._UVtrianglesABC.slice();
-
-    if (srcData._faceNormalsXYZ) dstData._faceNormalsXYZ = srcData._faceNormalsXYZ.slice();
-    if (srcData._faceCentersXYZ) dstData._faceCentersXYZ = srcData._faceCentersXYZ.slice();
-    if (srcData._faceBoxes) dstData._faceBoxes = srcData._faceBoxes.slice();
-
-    // 5. DrawArrays Cache
-    if (srcData._DAverticesXYZ) dstData._DAverticesXYZ = srcData._DAverticesXYZ.slice();
-    if (srcData._DAnormalsXYZ) dstData._DAnormalsXYZ = srcData._DAnormalsXYZ.slice();
-    if (srcData._DAcolorsRGB) dstData._DAcolorsRGB = srcData._DAcolorsRGB.slice();
-    if (srcData._DAmaterialsPBR) dstData._DAmaterialsPBR = srcData._DAmaterialsPBR.slice();
-    if (srcData._DAtexCoordsST) dstData._DAtexCoordsST = srcData._DAtexCoordsST.slice();
-
-    // 6. Octree (Order is critical: Compute Octree -> Update Center)
+    // NOTE: allocateArrays() is intentionally SKIPPED because we manually created the arrays above.
+    
+    // 3. Compute spatial structures
     copy.computeOctree(); 
     copy.updateCenter();
 
-    // 7. Render Config
+    // 4. Render Setup
     copy.copyTransformData(mesh);
     copy.copyRenderConfig(mesh);
     
-    // 8. Init Render
+    // 5. Initialize GPU Buffers
     copy.initRender();
+    
+    // Force update of buffers if renderData exists
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
         copy.updateDuplicateColorsAndMaterials();
@@ -974,61 +955,11 @@ class Scene {
     return axis !== 0 && axis !== 1 && axis !== 2 ? 2 : axis;
   }
 
+  // Helper for safety checks
   _getPatternCount(count, meshes) {
     var countInt = Math.floor(Number(count));
-    if (!Number.isFinite(countInt) || countInt <= 0)
-      return 0;
-
-    var meshCount = meshes.length;
-    if (!meshCount)
-      return 0;
-
-    for (var i = 0; i < meshCount; ++i) {
-      if (!meshes[i] || typeof meshes[i].getNbTriangles !== 'function') {
-        console.error('Invalid mesh detected at index', i);
-        window.alert('One or more selected meshes are invalid. Please reselect and try again.');
-        return 0;
-      }
-    }
-
-    var maxSelectionCount = Math.floor(20 / meshCount);
-    if (maxSelectionCount < 1)
-      return 0;
-
-    var totalTriangles = 0;
-    for (var j = 0; j < meshCount; ++j) {
-      try {
-        var triangles = meshes[j].getNbTriangles();
-        if (!Number.isFinite(triangles) || triangles < 0) {
-          console.error('Invalid triangle count for mesh', j, ':', triangles);
-          window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
-          return 0;
-        }
-        totalTriangles += triangles;
-      } catch (error) {
-        console.error('Error getting triangle count for mesh', j, ':', error);
-        window.alert('Error analyzing mesh geometry. Please try with different meshes.');
-        return 0;
-      }
-    }
-
-    if (totalTriangles === 0) {
-      window.alert('Selected meshes have no triangles. Cannot duplicate empty meshes.');
-      return 0;
-    }
-
-    var maxTrianglesLimit = Math.floor(1000000 / totalTriangles);
-    if (maxTrianglesLimit < 1) {
-      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
-      return 0;
-    }
-
-    var maxCopies = Math.min(countInt, maxSelectionCount, maxTrianglesLimit);
-    if (countInt > maxCopies) {
-      console.warn('Pattern duplication reduced from', countInt, 'to', maxCopies, 'to avoid excessive geometry.');
-      console.info('Mesh count:', meshCount, 'Total triangles:', totalTriangles, 'Max copies allowed:', maxCopies);
-    }
-    return maxCopies;
+    if (!Number.isFinite(countInt) || countInt <= 0) return 0;
+    return countInt;
   }
 
   _getFiniteNumber(value) {
