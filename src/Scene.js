@@ -1013,36 +1013,46 @@ class Scene {
       return null;
 
     var maxCopies = 20;
+    var maxTotalTriangles = 2000000;
+    var maxTotalVertices = 4000000;
+    var maxTotalBytes = 512 * 1024 * 1024;
+
     var maxPerMesh = Math.floor(maxCopies / stats.meshCount);
     if (maxPerMesh < 1)
       return null;
 
-    var maxTotalTriangles = 1000000;
     var maxByTriangles = Math.floor(maxTotalTriangles / stats.totalTriangles);
     if (maxByTriangles < 1) {
-      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
+      window.alert('Selected meshes are too dense to duplicate safely (Too many triangles). Try decimating first.');
       return null;
     }
 
-    var maxTotalVertices = 2000000;
     var maxByVertices = Math.floor(maxTotalVertices / stats.totalVertices);
     if (maxByVertices < 1) {
-      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
+      window.alert('Selected meshes are too dense to duplicate safely (Too many vertices). Try decimating first.');
       return null;
     }
 
     var byteMultiplier = 2;
-    var maxTotalBytes = 256 * 1024 * 1024;
-    var maxByBytes = stats.totalBytes ? Math.floor(maxTotalBytes / (stats.totalBytes * byteMultiplier)) : safeCount;
+    var estimatedBytes = stats.totalBytes;
+    if (estimatedBytes === 0 && stats.totalVertices > 0)
+      estimatedBytes = stats.totalVertices * 48;
+    if (estimatedBytes === 0)
+      estimatedBytes = 1024;
+
+    var maxByBytes = Math.floor(maxTotalBytes / (estimatedBytes * byteMultiplier));
     if (maxByBytes < 1) {
-      window.alert('Selected meshes are too large to duplicate safely. Try decimating or reducing the selection.');
+      window.alert('Selected meshes are too large to duplicate safely (Memory limit). Try decimating first.');
       return null;
     }
 
     var maxAllowed = Math.min(safeCount, maxPerMesh, maxByTriangles, maxByVertices, maxByBytes);
     if (safeCount > maxAllowed) {
-      console.warn('Pattern duplication reduced from', safeCount, 'to', maxAllowed, 'to avoid excessive geometry.');
-      console.info('Mesh count:', stats.meshCount, 'Total triangles:', stats.totalTriangles, 'Total vertices:', stats.totalVertices, 'Max copies allowed:', maxAllowed);
+      console.warn('Pattern duplication reduced from', safeCount, 'to', maxAllowed, 'to avoid crash.');
+      if (maxAllowed === 0) {
+        window.alert('Operation cancelled: Not enough memory to create even one copy.');
+        return null;
+      }
     }
 
     return {
