@@ -23,9 +23,10 @@ var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
 
-// GIZMO CONSTANTS
-var GIZMO_SIZE_PX = 100;
-var GIZMO_OFFSET = 10;
+// Constantes para el Gizmo de Orientación
+var GIZMO_VIEWPORT_SIZE = 100; // Tamaño en píxeles
+var GIZMO_OFFSET_X = 10;
+var GIZMO_OFFSET_Y = 10;
 
 class Scene {
 
@@ -74,8 +75,8 @@ class Scene {
     this._autoRotatePivot = 0;
     this._autoRotateLastTime = null;
 
-    // --- ARRAYS PARA EL GIZMO ---
-    this._gizmoArrows = [];
+    // Orientation Gizmo Meshes
+    this._gizmoArrows = []; 
   }
 
   start() {
@@ -90,7 +91,7 @@ class Scene {
     this._grid = Primitives.createGrid(this._gl);
     this.initGrid();
     
-    // --- INICIALIZAR GIZMO ---
+    // Inicializar el Gizmo de Orientación (Flechas RGB)
     this._initOrientationGizmo();
 
     this.loadTextures();
@@ -101,53 +102,29 @@ class Scene {
     else this.addSphere();
   }
 
-  // >>> FUNCIÓN INICIALIZACIÓN GIZMO <<<
   _initOrientationGizmo() {
     var gl = this._gl;
-    // X (Red)
-    var ax = Primitives.createArrow(gl, 0.1, 1.2, 0.3, 0.3);
-    ax.setFlatColor([0.8, 0.1, 0.1]);
-    var matX = ax.getMatrix();
-    mat4.rotateZ(matX, matX, -Math.PI / 2);
+    // X Axis (Rojo)
+    var arrowX = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
+    arrowX.setFlatColor([0.8, 0.1, 0.1]); // Rojo
+    var matX = arrowX.getMatrix();
+    mat4.rotateZ(matX, matX, -Math.PI / 2); // Orientar en X
     
-    // Y (Green)
-    var ay = Primitives.createArrow(gl, 0.1, 1.2, 0.3, 0.3);
-    ay.setFlatColor([0.1, 0.8, 0.1]);
-    
-    // Z (Blue)
-    var az = Primitives.createArrow(gl, 0.1, 1.2, 0.3, 0.3);
-    az.setFlatColor([0.1, 0.1, 0.9]);
-    var matZ = az.getMatrix();
-    mat4.rotateX(matZ, matZ, Math.PI / 2);
+    // Y Axis (Verde)
+    var arrowY = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
+    arrowY.setFlatColor([0.1, 0.8, 0.1]); // Verde
+    // Por defecto apunta arriba (Y)
 
-    this._gizmoArrows = [ax, ay, az];
+    // Z Axis (Azul)
+    var arrowZ = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
+    arrowZ.setFlatColor([0.1, 0.1, 0.8]); // Azul
+    var matZ = arrowZ.getMatrix();
+    mat4.rotateX(matZ, matZ, Math.PI / 2); // Orientar en Z
+
+    this._gizmoArrows = [arrowX, arrowY, arrowZ];
+    
+    // Configurar Shader Flat para que no le afecten luces complejas
     this._gizmoArrows.forEach(m => m.setShaderType(Enums.Shader.FLAT));
-  }
-
-  // >>> FUNCIÓN DIBUJADO GIZMO <<<
-  _drawOrientationGizmo() {
-    var gl = this._gl;
-    var cw = this._canvasWidth;
-    var ch = this._canvasHeight;
-
-    // Viewport esquina superior derecha
-    gl.viewport(cw - GIZMO_SIZE_PX - GIZMO_OFFSET, ch - GIZMO_SIZE_PX - GIZMO_OFFSET, GIZMO_SIZE_PX, GIZMO_SIZE_PX);
-    gl.clear(gl.DEPTH_BUFFER_BIT); // Limpiar depth para pintar encima
-
-    // Cámara "fantasma" que solo rota
-    var cam = new Camera(this);
-    mat4.copy(cam._view, this._camera._view);
-    cam._view[12] = 0;
-    cam._view[13] = 0;
-    cam._view[14] = -4.5; // Distancia fija
-
-    this._gizmoArrows.forEach(m => {
-        m.updateMatrices(cam);
-        m.render(this);
-    });
-
-    // Restaurar viewport
-    gl.viewport(0, 0, cw, ch);
   }
 
   addModelURL(url) {
@@ -179,6 +156,7 @@ class Scene {
   getStateManager() { return this._stateManager; }
   setMesh(mesh) { return this.setOrUnsetMesh(mesh); }
   setCanvasCursor(style) { this._canvas.style.cursor = style; }
+  
   setAutoRotateEnabled(enabled) {
     this._autoRotateEnabled = enabled;
     this._autoRotateLastTime = null;
@@ -318,7 +296,7 @@ class Scene {
     var gl = this._gl;
     if (!gl) return;
     
-    // 1. Dibujar Escena
+    // 1. Dibujar Escena Principal
     if (this._drawFullScene) this._drawScene();
     
     gl.disable(gl.DEPTH_TEST);
@@ -330,11 +308,44 @@ class Scene {
     
     this._sculptManager.postRender();
 
-    // 2. Dibujar Gizmo Orientación encima
+    // 2. DIBUJAR GIZMO DE ORIENTACIÓN (Esquina Superior Derecha)
     this._drawOrientationGizmo();
 
     if (this._autoRotateEnabled && this._mesh) this.render();
   }
+
+  // --- Nueva función para el Gizmo ---
+  _drawOrientationGizmo() {
+    var gl = this._gl;
+    var cw = this._canvasWidth;
+    var ch = this._canvasHeight;
+
+    // Configurar viewport pequeño en la esquina superior derecha
+    gl.viewport(cw - GIZMO_VIEWPORT_SIZE - GIZMO_OFFSET_X, ch - GIZMO_VIEWPORT_SIZE - GIZMO_OFFSET_Y, GIZMO_VIEWPORT_SIZE, GIZMO_VIEWPORT_SIZE);
+    
+    // Limpiar depth para que se dibuje encima de todo
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+
+    // Crear una cámara temporal que solo rota
+    // Usamos una cámara fija alejada para ver el gizmo
+    var gizmoCam = new Camera(this); 
+    gizmoCam._view = mat4.clone(this._camera._view); // Copiar rotación de la cámara principal
+    
+    // Anular la traslación de la cámara (queremos que rote sobre sí misma 0,0,0)
+    gizmoCam._view[12] = 0;
+    gizmoCam._view[13] = 0;
+    gizmoCam._view[14] = -5.0; // Alejar un poco para ver las flechas
+
+    // Renderizar flechas
+    this._gizmoArrows.forEach(arrow => {
+        arrow.updateMatrices(gizmoCam);
+        arrow.render(this);
+    });
+
+    // Restaurar viewport original
+    gl.viewport(0, 0, cw, ch);
+  }
+  // -----------------------------------
 
   _drawScene() {
     var gl = this._gl;
@@ -643,7 +654,7 @@ class Scene {
     this.setMesh(mesh);
   }
 
-  // >>> NUEVA FUNCION CREATE PATTERN (REEMPLAZA duplicateSelectionGeneric) <<<
+  // --- FUNCIÓN RESTAURADA Y MEJORADA PARA PATTERN TOOL ---
   createPattern(patterns, useWorldReference) {
     if (!this._selectMeshes.length) return;
     if (!patterns || !patterns.length) return;
