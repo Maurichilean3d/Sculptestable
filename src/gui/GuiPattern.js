@@ -7,73 +7,69 @@ class GuiPattern {
     this._main = ctrlGui._main;
     this._menu = null;
 
-    // Estado inicial simple
+    // Estado inicial
     this._mode = 'LINEAR'; // Modos: LINEAR o GRID
     this._origin = 'LOCAL'; // Pivote: LOCAL o WORLD
 
-    // Parámetros Lineales (Filas, columnas, círculos)
+    // --- AJUSTE: Valores iniciales mucho más pequeños (0.2 en lugar de 2.0) ---
     this._linCount = 3;
-    this._linOffset = [2.0, 0.0, 0.0];
+    this._linOffset = [0.2, 0.0, 0.0]; 
     this._linRotate = [0.0, 0.0, 0.0];
     this._linScale = [1.0, 1.0, 1.0];
 
-    // Parámetros Grid (Suelos, Muros 3D)
-    this._gridCount = [3, 3, 1]; // Columnas, Filas, Pisos
-    this._gridSpace = [2.0, 2.0, 2.0]; // Espaciado X, Y, Z
+    this._gridCount = [3, 1, 1]; 
+    this._gridSpace = [0.2, 0.2, 0.2];
 
     this._isOperation = false;
     this.init();
   }
 
   init() {
-    // Si el menú ya existe, lo borramos para redibujarlo limpio
     if (this._menu) this._menu.remove();
 
     var menu = this._menu = this._guiParent.addMenu(TR('sceneCopyPattern'));
 
-    // --- 1. CONFIGURACIÓN PRINCIPAL ---
-    menu.addTitle('General');
+    // --- 1. CONFIGURACIÓN ---
+    menu.addTitle('Settings');
     
-    // Selector de Modo: Limpia la UI mostrando solo lo necesario
-    menu.addCombobox('Mode', this._mode, this.onModeChange.bind(this), {
-      'Linear / Radial': 'LINEAR',
-      'Grid / Array (2D/3D)': 'GRID'
+    menu.addCombobox('Type', this._mode, this.onModeChange.bind(this), {
+      'Linear (Line/Circle)': 'LINEAR',
+      'Grid (Array 3D)': 'GRID'
     });
 
-    // Selector de Pivote: Define cómo giran o se mueven las copias
-    menu.addCombobox('Origin', this._origin, this.onOriginChange.bind(this), {
-      'Selection (Object Axis)': 'LOCAL',
-      'World Center (0,0,0)': 'WORLD'
+    menu.addCombobox('Reference', this._origin, this.onOriginChange.bind(this), {
+      'Local (Selection Axis)': 'LOCAL',
+      'World (Global 0,0,0)': 'WORLD'
     });
 
-    // --- 2. PARÁMETROS DINÁMICOS ---
+    // --- 2. PARÁMETROS (RANGOS AJUSTADOS) ---
     if (this._mode === 'LINEAR') {
       this.buildLinearUI(menu);
     } else {
       this.buildGridUI(menu);
     }
 
-    // --- 3. BOTÓN DE ACCIÓN ---
-    menu.addTitle('Action');
+    // --- 3. ACCIÓN ---
+    menu.addTitle('Generate');
     menu.addButton(TR('sceneCopyPatternApply'), this, 'applyPattern');
   }
 
   buildLinearUI(menu) {
-    menu.addTitle('Linear Parameters');
-    menu.addSlider('Count', this._linCount, (v) => { this._linCount = v; }, 1, 50, 1);
+    menu.addTitle('Count');
+    menu.addSlider('Copies', this._linCount, (v) => { this._linCount = v; }, 1, 50, 1);
 
-    menu.addTitle('Offset (Distance)');
-    menu.addSlider('X', this._linOffset[0], (v) => { this._linOffset[0] = v; }, -10, 10, 0.01);
-    menu.addSlider('Y', this._linOffset[1], (v) => { this._linOffset[1] = v; }, -10, 10, 0.01);
-    menu.addSlider('Z', this._linOffset[2], (v) => { this._linOffset[2] = v; }, -10, 10, 0.01);
+    // AJUSTE: Rango reducido a +/- 2.0 y precisión de 0.001
+    menu.addTitle('Spacing (Offset)');
+    menu.addSlider('X', this._linOffset[0], (v) => { this._linOffset[0] = v; }, -2.0, 2.0, 0.001);
+    menu.addSlider('Y', this._linOffset[1], (v) => { this._linOffset[1] = v; }, -2.0, 2.0, 0.001);
+    menu.addSlider('Z', this._linOffset[2], (v) => { this._linOffset[2] = v; }, -2.0, 2.0, 0.001);
 
-    menu.addTitle('Rotation (Degrees)');
+    menu.addTitle('Rotation (Step)');
     menu.addSlider('Rot X', this._linRotate[0], (v) => { this._linRotate[0] = v; }, -180, 180, 1);
     menu.addSlider('Rot Y', this._linRotate[1], (v) => { this._linRotate[1] = v; }, -180, 180, 1);
     menu.addSlider('Rot Z', this._linRotate[2], (v) => { this._linRotate[2] = v; }, -180, 180, 1);
     
-    // Escala uniforme para simplificar
-    menu.addTitle('Scale Step');
+    menu.addTitle('Scale (Step)');
     menu.addSlider('Uniform Scale', this._linScale[0], (v) => { 
         this._linScale = [v, v, v]; 
     }, 0.1, 2.0, 0.01);
@@ -82,22 +78,23 @@ class GuiPattern {
   buildGridUI(menu) {
     menu.addTitle('Grid Configuration');
     
+    // AJUSTE: Rangos reducidos también para el Grid
     // Eje X
     menu.addSlider('Columns (X)', this._gridCount[0], (v) => { this._gridCount[0] = v; }, 1, 20, 1);
-    menu.addSlider('Space X', this._gridSpace[0], (v) => { this._gridSpace[0] = v; }, -5, 5, 0.01);
+    menu.addSlider('Space X', this._gridSpace[0], (v) => { this._gridSpace[0] = v; }, -2.0, 2.0, 0.001);
 
     // Eje Y
     menu.addSlider('Rows (Y)', this._gridCount[1], (v) => { this._gridCount[1] = v; }, 1, 20, 1);
-    menu.addSlider('Space Y', this._gridSpace[1], (v) => { this._gridSpace[1] = v; }, -5, 5, 0.01);
+    menu.addSlider('Space Y', this._gridSpace[1], (v) => { this._gridSpace[1] = v; }, -2.0, 2.0, 0.001);
 
     // Eje Z
     menu.addSlider('Levels (Z)', this._gridCount[2], (v) => { this._gridCount[2] = v; }, 1, 20, 1);
-    menu.addSlider('Space Z', this._gridSpace[2], (v) => { this._gridSpace[2] = v; }, -5, 5, 0.01);
+    menu.addSlider('Space Z', this._gridSpace[2], (v) => { this._gridSpace[2] = v; }, -2.0, 2.0, 0.001);
   }
 
   onModeChange(val) {
     this._mode = val;
-    this.init(); // Reconstruye la UI instantáneamente
+    this.init(); 
   }
 
   onOriginChange(val) {
@@ -115,11 +112,9 @@ class GuiPattern {
 
     this._isOperation = true;
     
-    // Preparar configuración para Scene.js
     var configs = [];
 
     if (this._mode === 'LINEAR') {
-      // Configuración Lineal Simple
       configs.push({
         count: this._linCount,
         offset: this._linOffset,
@@ -127,12 +122,11 @@ class GuiPattern {
         scale: this._linScale
       });
     } else {
-      // Configuración Grid (X -> Y -> Z)
-      if (this._gridCount[0] > 1) // X
+      if (this._gridCount[0] > 1) 
         configs.push({ count: this._gridCount[0], offset: [this._gridSpace[0], 0, 0], rotate: [0,0,0], scale: [1,1,1] });
-      if (this._gridCount[1] > 1) // Y
+      if (this._gridCount[1] > 1) 
         configs.push({ count: this._gridCount[1], offset: [0, this._gridSpace[1], 0], rotate: [0,0,0], scale: [1,1,1] });
-      if (this._gridCount[2] > 1) // Z
+      if (this._gridCount[2] > 1) 
         configs.push({ count: this._gridCount[2], offset: [0, 0, this._gridSpace[2]], rotate: [0,0,0], scale: [1,1,1] });
     }
 
