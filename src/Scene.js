@@ -554,3 +554,174 @@ class Scene {
       if (testMesh === mesh || testMesh.getID() === id) return i;
     }
     return -1;
+  }
+
+  getIndexSelectMesh(mesh) { return this.getIndexMesh(mesh, true); }
+
+  replaceMesh(mesh, newMesh) {
+    var index = this.getIndexMesh(mesh);
+    if (index >= 0) this._meshes[index] = newMesh;
+    if (this._mesh === mesh) this.setMesh(newMesh);
+  }
+
+  duplicateSelection() {
+    var meshes = this._selectMeshes.slice();
+    var mesh = null;
+    for (var i = 0; i < meshes.length; ++i) {
+      mesh = meshes[i];
+      var copy = this._createMeshCopy(mesh);
+      this.addNewMesh(copy);
+    }
+    this.setMesh(mesh);
+  }
+
+  /**
+   * Powerful Pattern Tool (Supports Grid/Array logic)
+   * @param {Array} patterns Array of config objects { count, offset, rotate, scale }
+   * @param {Boolean} useWorldReference True = Orbit/Global, False = Relative/Local
+   */
+  createPattern(patterns, useWorldReference) {
+    if (!this._selectMeshes.length) return;
+    if (!patterns || !patterns.length) return;
+
+    // 1. Calculate Total Copies (Safety Check)
+    var totalCopies = 1;
+    for (var p = 0; p < patterns.length; ++p) {
+      totalCopies *= Math.max(1, Math.floor(patterns[p].count));
+    }
+    
+    // Safety Limit: Prevent Browser Crash
+    var HARD_LIMIT = 200; 
+    if (totalCopies > HARD_LIMIT) {
+      if (!window.confirm(`Warning: You are creating ${totalCopies} copies. This may slow down or freeze your browser. Continue?`)) return;
+    }
+
+    // 2. Setup Loop
+    // We start with the selection. 
+    // For each Level, we duplicate the ENTIRE previous set (Grid logic).
+    
+    var currentGeneration = this._selectMeshes.slice(); // Starts with selection
+    var allNewCopies = []; // Accumulator for undo/history
+
+    try {
+      // Loop through Levels (0, 1, 2)
+      for (var d = 0; d < patterns.length; ++d) {
+        var config = patterns[d];
+        var count = Math.floor(config.count);
+        if (count <= 1) continue; // No duplication for this dimension
+
+        var stepMatrix = mat4.create();
+        mat4.identity(stepMatrix);
+        mat4.translate(stepMatrix, stepMatrix, config.offset);
+        if (config.rotate[0]) mat4.rotateX(stepMatrix, stepMatrix, config.rotate[0] * Math.PI / 180);
+        if (config.rotate[1]) mat4.rotateY(stepMatrix, stepMatrix, config.rotate[1] * Math.PI / 180);
+        if (config.rotate[2]) mat4.rotateZ(stepMatrix, stepMatrix, config.rotate[2] * Math.PI / 180);
+        if (config.scale) mat4.scale(stepMatrix, stepMatrix, config.scale);
+
+        // We duplicate the CURRENT generation
+        // To make a Grid: If we have 3 items in X, and want 2 in Y.
+        // We take the 3 items, and duplicate them once (translated in Y).
+        
+        var nextGeneration = currentGeneration.slice(); // Start with what we have
+
+        // Prepare Transform Matrix Accumulator
+        var accumMatrix = mat4.create();
+        mat4.identity(accumMatrix);
+
+        for (var c = 1; c < count; ++c) {
+          mat4.mul(accumMatrix, accumMatrix, stepMatrix); // Accumulate Step
+          
+          // Duplicate everything in current generation
+          for (var m = 0; m < currentGeneration.length; ++m) {
+             var baseMesh = currentGeneration[m];
+             var copy = this._createMeshCopy(baseMesh);
+
+             // Apply Transform
+             if (useWorldReference) {
+               // World/Global: New = Transform * Old (Pre-multiply)
+               // This makes rotation happen around (0,0,0)
+               mat4.mul(copy.getMatrix(), accumMatrix, copy.getMatrix());
+               mat4.mul(copy.getEditMatrix(), accumMatrix, copy.getEditMatrix());
+             } else {
+               // Local/Relative: New = Old * Transform (Post-multiply)
+               // This makes rotation happen locally or moves relative to object axis
+               mat4.mul(copy.getMatrix(), copy.getMatrix(), accumMatrix);
+               mat4.mul(copy.getEditMatrix(), copy.getEditMatrix(), accumMatrix);
+             }
+
+             nextGeneration.push(copy); // Add to pool for next dimension
+             allNewCopies.push(copy);   // Add to final scene list
+          }
+        }
+        
+        // Update generation for next loop (Grid Logic: Input for next level is everything we just made)
+        currentGeneration = nextGeneration; 
+      }
+      
+    } catch(e) {
+      console.error(e);
+      window.alert("Error generating pattern geometry.");
+      return;
+    }
+
+    // Add all generated copies to scene
+    this._addMeshes(allNewCopies, allNewCopies[allNewCopies.length-1]);
+  }
+
+  _createMeshCopy(mesh) {
+    var copy = new MeshStatic(mesh.getGL());
+    var srcData = mesh.getMeshData();
+    var dstData = copy.getMeshData();
+
+    dstData._nbVertices = srcData._nbVertices;
+    dstData._nbFaces = srcData._nbFaces;
+    dstData._nbTexCoords = srcData._nbTexCoords;
+
+    if (srcData._verticesXYZ) dstData._verticesXYZ = new Float32Array(srcData._verticesXYZ);
+    if (srcData._colorsRGB) dstData._colorsRGB = new Float32Array(srcData._colorsRGB);
+    if (srcData._materialsPBR) dstData._materialsPBR = new Float32Array(srcData._materialsPBR);
+    if (srcData._normalsXYZ) dstData._normalsXYZ = new Float32Array(srcData._normalsXYZ);
+    if (srcData._facesABCD) dstData._facesABCD = srcData._facesABCD instanceof Uint32Array ? new Uint32Array(srcData._facesABCD) : new Uint16Array(srcData._facesABCD);
+    if (srcData._texCoordsST) dstData._texCoordsST = new Float32Array(srcData._texCoordsST);
+    if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD instanceof Uint32Array ? new Uint32Array(srcData._UVfacesABCD) : new Uint16Array(srcData._UVfacesABCD);
+    if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
+
+    copy.copyTransformData(mesh);
+    copy.copyRenderConfig(mesh);
+    copy.computeOctree(); 
+    copy.updateCenter();
+    copy.initRender();
+    if (copy.getRenderData()) {
+        copy.updateGeometryBuffers();
+        copy.updateDuplicateColorsAndMaterials();
+    }
+    return copy;
+  }
+
+  _addMeshes(meshes, mesh) {
+    if (!meshes.length) return;
+    Array.prototype.push.apply(this._meshes, meshes);
+    this._stateManager.pushStateAdd(meshes);
+    if (mesh !== undefined) this.setMesh(mesh);
+    else this.setMesh(meshes[meshes.length - 1]);
+  }
+
+  onLoadAlphaImage(img, name, controller) {
+    var canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    var data = ctx.getImageData(0, 0, img.width, img.height).data;
+    var alpha = data.subarray(0, data.length / 4);
+    for (var i = 0, j = 0, l = alpha.length; i < l; ++i, j += 4) {
+      alpha[i] = Math.round((data[j] + data[j + 1] + data[j + 2]) / 3);
+    }
+    var alphas = {};
+    alphas[name = Gui.addAlpha(alpha, img.width, img.height, name)._name] = name;
+    this.getGui().addAlphaOptions(alphas);
+    if (controller && controller._ctrlAlpha) controller._ctrlAlpha.setValue(name);
+  }
+}
+
+export default Scene;
