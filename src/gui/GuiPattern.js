@@ -8,7 +8,8 @@ class GuiPattern {
     
     // Unified Parameters
     this._patternCount = 3;
-    this._patternTranslate = [10, 0, 0]; // X, Y, Z
+    // AJUSTE: Valor inicial reducido a 2 para evitar que salga disparado al inicio
+    this._patternTranslate = [2.0, 0.0, 0.0]; // X, Y, Z
     this._patternRotate = [0, 0, 0];     // X, Y, Z (Degrees)
     this._patternScale = [1, 1, 1];      // X, Y, Z (Not exposed in UI to keep simple, but supported in logic)
 
@@ -22,11 +23,12 @@ class GuiPattern {
     // 1. Quantity
     menu.addSlider(TR('sceneCopyPatternCount'), this._patternCount, this.onPatternCount.bind(this), 1, 20, 1);
 
-    // 2. Translation (Step Offset)
+    // 2. Translation (Step Offset) - AJUSTADO PARA MAYOR PRECISIÓN
+    // Rango reducido a -20/20 y paso (step) bajado a 0.01 para control fino
     menu.addTitle(TR('sceneCopyPatternSpacing') + ' (Offset)');
-    menu.addSlider('X', this._patternTranslate[0], this.onPatternTranslateX.bind(this), -100, 100, 0.5);
-    menu.addSlider('Y', this._patternTranslate[1], this.onPatternTranslateY.bind(this), -100, 100, 0.5);
-    menu.addSlider('Z', this._patternTranslate[2], this.onPatternTranslateZ.bind(this), -100, 100, 0.5);
+    menu.addSlider('X', this._patternTranslate[0], this.onPatternTranslateX.bind(this), -20, 20, 0.01);
+    menu.addSlider('Y', this._patternTranslate[1], this.onPatternTranslateY.bind(this), -20, 20, 0.01);
+    menu.addSlider('Z', this._patternTranslate[2], this.onPatternTranslateZ.bind(this), -20, 20, 0.01);
 
     // 3. Rotation (Step Rotation)
     menu.addTitle(TR('sceneCopyPatternAngle') + ' (Rotate)');
