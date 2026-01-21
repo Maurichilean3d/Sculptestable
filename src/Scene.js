@@ -810,28 +810,30 @@ class Scene {
 
   _createMeshCopy(mesh) {
     var copy = new MeshStatic(mesh.getGL());
-    
-    // Manual Deep Copy of MeshData
     var srcData = mesh.getMeshData();
     var dstData = copy.getMeshData();
 
-    // 1. Basic Geometry
-    if (srcData._verticesXYZ) dstData._verticesXYZ = srcData._verticesXYZ.slice();
-    if (srcData._normalsXYZ) dstData._normalsXYZ = srcData._normalsXYZ.slice();
-    if (srcData._colorsRGB) dstData._colorsRGB = srcData._colorsRGB.slice();
-    if (srcData._materialsPBR) dstData._materialsPBR = srcData._materialsPBR.slice();
-    if (srcData._facesABCD) dstData._facesABCD = srcData._facesABCD.slice();
-
+    // 1. Setup Counts
     dstData._nbVertices = srcData._nbVertices;
     dstData._nbFaces = srcData._nbFaces;
+    dstData._nbTexCoords = srcData._nbTexCoords;
 
-    // 2. UVs (Copy directly to avoid re-computation)
+    // 2. Copy main buffers
+    if (srcData._verticesXYZ) dstData._verticesXYZ = srcData._verticesXYZ.slice();
+    if (srcData._colorsRGB) dstData._colorsRGB = srcData._colorsRGB.slice();
+    if (srcData._materialsPBR) dstData._materialsPBR = srcData._materialsPBR.slice();
+    if (srcData._normalsXYZ) dstData._normalsXYZ = srcData._normalsXYZ.slice();
+    if (srcData._facesABCD) dstData._facesABCD = srcData._facesABCD.slice();
+    
+    // UVs
     if (srcData._texCoordsST) dstData._texCoordsST = srcData._texCoordsST.slice();
     if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD.slice();
     if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
-    dstData._nbTexCoords = srcData._nbTexCoords;
 
-    // 3. Topology (The heavy stuff - copy directly)
+    // 3. Helper Allocations (Creates internal arrays)
+    copy.allocateArrays(); 
+
+    // 4. Overwrite Topology with Slices (Fast Path)
     if (srcData._vertRingFace) dstData._vertRingFace = srcData._vertRingFace.slice();
     if (srcData._vrvStartCount) dstData._vrvStartCount = srcData._vrvStartCount.slice();
     if (srcData._vrfStartCount) dstData._vrfStartCount = srcData._vrfStartCount.slice();
@@ -844,36 +846,27 @@ class Scene {
     if (srcData._trianglesABC) dstData._trianglesABC = srcData._trianglesABC.slice();
     if (srcData._UVtrianglesABC) dstData._UVtrianglesABC = srcData._UVtrianglesABC.slice();
 
-    // 4. Spatial Data
     if (srcData._faceNormalsXYZ) dstData._faceNormalsXYZ = srcData._faceNormalsXYZ.slice();
     if (srcData._faceCentersXYZ) dstData._faceCentersXYZ = srcData._faceCentersXYZ.slice();
     if (srcData._faceBoxes) dstData._faceBoxes = srcData._faceBoxes.slice();
 
-    // 5. DrawArrays Cache (Crucial for performance)
+    // 5. DrawArrays Cache
     if (srcData._DAverticesXYZ) dstData._DAverticesXYZ = srcData._DAverticesXYZ.slice();
     if (srcData._DAnormalsXYZ) dstData._DAnormalsXYZ = srcData._DAnormalsXYZ.slice();
     if (srcData._DAcolorsRGB) dstData._DAcolorsRGB = srcData._DAcolorsRGB.slice();
     if (srcData._DAmaterialsPBR) dstData._DAmaterialsPBR = srcData._DAmaterialsPBR.slice();
     if (srcData._DAtexCoordsST) dstData._DAtexCoordsST = srcData._DAtexCoordsST.slice();
 
-    // 6. Flags & Temp Arrays (Allocate new to avoid shared state issues)
-    dstData._vertTagFlags = new Int32Array(dstData._nbVertices);
-    dstData._vertSculptFlags = new Int32Array(dstData._nbVertices);
-    dstData._vertStateFlags = new Int32Array(dstData._nbVertices);
-    dstData._vertProxy = new Float32Array(dstData._nbVertices * 3);
-    dstData._facesTagFlags = new Int32Array(dstData._nbFaces);
-    
-    // 7. Octree (Recompute is safer and fast enough)
-    dstData._facePosInLeaf = new Uint32Array(dstData._nbFaces);
-    dstData._faceLeaf = new Array(dstData._nbFaces);
+    // 6. Octree (Order is critical: Compute Octree -> Update Center)
+    // El orden aquí es vital para evitar el error del popup.
+    copy.computeOctree(); 
     copy.updateCenter();
-    copy.computeOctree();
 
-    // 8. Transform & Render Config
+    // 7. Render Config
     copy.copyTransformData(mesh);
     copy.copyRenderConfig(mesh);
     
-    // 9. Initialize Render (Upload to GPU)
+    // 8. Init Render
     copy.initRender();
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
@@ -888,173 +881,185 @@ class Scene {
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes);
-    if (count <= 0)
+    var plan = this._getPatternPlan(count, meshes);
+    if (!plan || plan.count <= 0)
       return;
 
+    count = plan.count;
     var copies = [];
+
     try {
       var transforms = new Array(meshes.length);
-      for (var i = 0; i < meshes.length; ++i) {
-        transforms[i] = transformFactory(meshes[i]);
-      }
+      for (var t = 0; t < meshes.length; ++t)
+        transforms[t] = transformFactory(meshes[t]);
 
-      for (var copyIndex = 1; copyIndex <= count; ++copyIndex) {
-        for (var meshIndex = 0; meshIndex < meshes.length; ++meshIndex) {
-          var mesh = meshes[meshIndex];
-          var copy = this._createMeshCopy(mesh);
-          this._applyMeshTransform(copy, transforms[meshIndex]());
+      for (var step = 1; step <= count; ++step) {
+        for (var i = 0; i < meshes.length; ++i) {
+          var baseMesh = meshes[i];
+          var copy = this._createMeshCopy(baseMesh);
+          this._applyMeshTransform(copy, transforms[i]());
           copies.push(copy);
         }
       }
-    } catch (error) {
-      console.error('Pattern duplication failed:', error);
+
+    } catch (e) {
+      console.error('Pattern duplication failed:', e);
       window.alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
       return;
     }
 
     this._addMeshes(copies, meshes[meshes.length - 1]);
-    if (copies.length > 0)
-      console.info('Successfully created', copies.length, 'pattern copies');
   }
 
   _buildLinearPattern(axis, spacing) {
-    var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing);
-    var transform = this._createTranslationMatrix(offset);
-    return function() {
-      var mat = mat4.create();
-      return function() {
-        mat4.mul(mat, transform, mat);
-        return mat4.clone(mat);
+    var stepOffset = vec3.scale([0, 0, 0], axis, spacing);
+    var stepTransform = this._createTranslationMatrix(stepOffset);
+    return function () {
+      var current = mat4.create();
+      return function () {
+        mat4.mul(current, stepTransform, current);
+        return mat4.clone(current);
       };
     }.bind(this);
   }
 
   _buildPolarPattern(axis, offset, angleDeg) {
-    return function(mesh) {
-      vec3.transformMat4(_TMP_COPY_CENTER, mesh.getCenter(), mesh.getMatrix());
+    return function (baseMesh) {
+      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
       var angle = angleDeg * Math.PI / 180.0;
-      var transform = this._createPolarMatrix(_TMP_COPY_CENTER, axis, offset, angle);
-      var mat = mat4.create();
-      return function() {
-        mat4.mul(mat, transform, mat);
-        return mat4.clone(mat);
+      var stepTransform = this._createPolarMatrix(baseCenter, axis, offset, angle);
+      var current = mat4.create();
+      return function () {
+        mat4.mul(current, stepTransform, current);
+        return mat4.clone(current);
       };
     }.bind(this);
   }
 
-  _addMeshes(meshes, mesh) {
+  _addMeshes(meshes, selectMesh) {
     if (!meshes.length)
       return;
 
     Array.prototype.push.apply(this._meshes, meshes);
     this._stateManager.pushStateAdd(meshes);
-    if (mesh !== undefined)
-      this.setMesh(mesh);
+    if (selectMesh !== undefined)
+      this.setMesh(selectMesh);
     else
       this.setMesh(meshes[meshes.length - 1]);
   }
 
-  _createPolarMatrix(center, axis, offset, angleRad) {
+  _createPolarMatrix(center, axis, offset, angle) {
     var mat = mat4.create();
     if (offset[0] || offset[1] || offset[2])
       mat4.translate(mat, mat, offset);
     mat4.translate(mat, mat, center);
-    mat4.rotate(mat, mat, angleRad, axis);
+    mat4.rotate(mat, mat, angle, axis);
     mat4.translate(mat, mat, [-center[0], -center[1], -center[2]]);
     return mat;
   }
 
   _getAxisVector(axisIndex) {
-    return axisIndex === 0 ? [1, 0, 0] : axisIndex === 1 ? [0, 1, 0] : [0, 0, 1];
+    if (axisIndex === 0) return [1, 0, 0];
+    if (axisIndex === 1) return [0, 1, 0];
+    return [0, 0, 1];
   }
 
   _getAxisIndex(axisIndex) {
-    var axis = Math.round(Number(axisIndex));
-    return axis !== 0 && axis !== 1 && axis !== 2 ? 2 : axis;
+    var idx = Math.round(Number(axisIndex));
+    if (idx !== 0 && idx !== 1 && idx !== 2)
+      return 2;
+    return idx;
   }
 
-  _getPatternCount(count, meshes) {
-    var countInt = Math.floor(Number(count));
-    if (!Number.isFinite(countInt) || countInt <= 0)
-      return 0;
-
+  _getPatternStats(meshes) {
     var meshCount = meshes.length;
-    if (!meshCount)
-      return 0;
-
-    for (var i = 0; i < meshCount; ++i) {
-      if (!meshes[i] || typeof meshes[i].getNbTriangles !== 'function') {
-        console.error('Invalid mesh detected at index', i);
-        window.alert('One or more selected meshes are invalid. Please reselect and try again.');
-        return 0;
-      }
-    }
-
-    var maxSelectionCount = Math.floor(20 / meshCount);
-    if (maxSelectionCount < 1)
-      return 0;
+    if (!meshCount) return null;
 
     var totalTriangles = 0;
-    for (var j = 0; j < meshCount; ++j) {
-      try {
-        var triangles = meshes[j].getNbTriangles();
-        if (!Number.isFinite(triangles) || triangles < 0) {
-          console.error('Invalid triangle count for mesh', j, ':', triangles);
-          window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
-          return 0;
-        }
-        totalTriangles += triangles;
-      } catch (error) {
-        console.error('Error getting triangle count for mesh', j, ':', error);
-        window.alert('Error analyzing mesh geometry. Please try with different meshes.');
-        return 0;
-      }
+    var totalVertices = 0;
+    
+    for (var i = 0; i < meshCount; ++i) {
+      if (!meshes[i] || !meshes[i].getNbTriangles) continue;
+      totalTriangles += meshes[i].getNbTriangles();
+      totalVertices += meshes[i].getNbVertices();
     }
 
-    if (totalTriangles === 0) {
-      window.alert('Selected meshes have no triangles. Cannot duplicate empty meshes.');
-      return 0;
+    if (totalTriangles === 0) return null;
+
+    return {
+      meshCount: meshCount,
+      totalTriangles: totalTriangles,
+      totalVertices: totalVertices,
+      totalBytes: totalVertices * 64
+    };
+  }
+
+  _getPatternPlan(count, meshes) {
+    var safeCount = Math.floor(Number(count));
+    if (!Number.isFinite(safeCount) || safeCount <= 0) return null;
+
+    if (meshes.length > 1 && meshes.length === this._meshes.length) {
+      window.alert('Pattern duplication uses the current selection. Please select only the mesh(es) you want to duplicate.');
+      return null;
     }
 
-    var maxTrianglesLimit = Math.floor(1000000 / totalTriangles);
-    if (maxTrianglesLimit < 1) {
-      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
-      return 0;
+    var stats = this._getPatternStats(meshes);
+    if (!stats) return null;
+
+    var maxTotalTriangles = 3000000;
+    var maxTotalVertices = 3000000;
+    
+    var maxByTriangles = Math.floor(maxTotalTriangles / stats.totalTriangles);
+    var maxByVertices = Math.floor(maxTotalVertices / stats.totalVertices);
+
+    var maxAllowed = Math.min(safeCount, 50, maxByTriangles, maxByVertices);
+
+    if (maxAllowed < 1) {
+       window.alert('Selection is too dense to duplicate (Memory limit). Try decimating first.');
+       return null;
     }
 
-    var maxCopies = Math.min(countInt, maxSelectionCount, maxTrianglesLimit);
-    if (countInt > maxCopies) {
-      console.warn('Pattern duplication reduced from', countInt, 'to', maxCopies, 'to avoid excessive geometry.');
-      console.info('Mesh count:', meshCount, 'Total triangles:', totalTriangles, 'Max copies allowed:', maxCopies);
+    if (safeCount > maxAllowed) {
+       console.warn('Reduced copy count from ' + safeCount + ' to ' + maxAllowed + ' to prevent crash.');
     }
-    return maxCopies;
+
+    return {
+      count: maxAllowed,
+      stats: stats
+    };
   }
 
   _getFiniteNumber(value) {
-    var number = Number(value);
-    return Number.isFinite(number) ? number : 0;
+    var num = Number(value);
+    return Number.isFinite(num) ? num : 0;
   }
 
   _getPolarOffset(radius, axisIndex) {
-    return radius ? (axisIndex === 0 ? [0, radius, 0] : [radius, 0, 0]) : [0, 0, 0];
+    if (!radius)
+      return [0, 0, 0];
+    if (axisIndex === 0) return [0, radius, 0];
+    return [radius, 0, 0];
   }
 
-  onLoadAlphaImage(img, name, controller) {
-    var canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    var ctx = canvas.getContext('2d');
+  onLoadAlphaImage(img, name, tool) {
+    var can = document.createElement('canvas');
+    can.width = img.width;
+    can.height = img.height;
+
+    var ctx = can.getContext('2d');
     ctx.drawImage(img, 0, 0);
-    var data = ctx.getImageData(0, 0, img.width, img.height).data;
-    var alpha = data.subarray(0, data.length / 4);
-    for (var i = 0, j = 0, l = alpha.length; i < l; ++i, j += 4) {
-      alpha[i] = Math.round((data[j] + data[j + 1] + data[j + 2]) / 3);
-    }
-    var alphas = {};
-    alphas[name = Gui.addAlpha(alpha, img.width, img.height, name)._name] = name;
-    this.getGui().addAlphaOptions(alphas);
-    if (controller && controller._ctrlAlpha) controller._ctrlAlpha.setValue(name);
+    var u8rgba = ctx.getImageData(0, 0, img.width, img.height).data;
+    var u8lum = u8rgba.subarray(0, u8rgba.length / 4);
+    for (var i = 0, j = 0, n = u8lum.length; i < n; ++i, j += 4)
+      u8lum[i] = Math.round((u8rgba[j] + u8rgba[j + 1] + u8rgba[j + 2]) / 3);
+
+    name = Picking.addAlpha(u8lum, img.width, img.height, name)._name;
+
+    var entry = {};
+    entry[name] = name;
+    this.getGui().addAlphaOptions(entry);
+    if (tool && tool._ctrlAlpha)
+      tool._ctrlAlpha.setValue(name);
   }
 }
 
