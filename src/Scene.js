@@ -1003,6 +1003,11 @@ class Scene {
     if (!Number.isFinite(safeCount) || safeCount <= 0)
       return null;
 
+    if (meshes.length > 1 && meshes.length === this._meshes.length) {
+      window.alert('Pattern duplication uses the current selection. Please select only the mesh(es) you want to duplicate.');
+      return null;
+    }
+
     var stats = this._getPatternStats(meshes);
     if (!stats)
       return null;
