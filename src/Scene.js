@@ -887,4 +887,175 @@ class Scene {
     if (!this._selectMeshes.length)
       return;
 
-    var meshes = this._selectMes
+    var meshes = this._selectMeshes.slice();
+    count = this._getPatternCount(count, meshes);
+    if (count <= 0)
+      return;
+
+    var copies = [];
+    try {
+      var transforms = new Array(meshes.length);
+      for (var i = 0; i < meshes.length; ++i) {
+        transforms[i] = transformFactory(meshes[i]);
+      }
+
+      for (var copyIndex = 1; copyIndex <= count; ++copyIndex) {
+        for (var meshIndex = 0; meshIndex < meshes.length; ++meshIndex) {
+          var mesh = meshes[meshIndex];
+          var copy = this._createMeshCopy(mesh);
+          this._applyMeshTransform(copy, transforms[meshIndex]());
+          copies.push(copy);
+        }
+      }
+    } catch (error) {
+      console.error('Pattern duplication failed:', error);
+      window.alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
+      return;
+    }
+
+    this._addMeshes(copies, meshes[meshes.length - 1]);
+    if (copies.length > 0)
+      console.info('Successfully created', copies.length, 'pattern copies');
+  }
+
+  _buildLinearPattern(axis, spacing) {
+    var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing);
+    var transform = this._createTranslationMatrix(offset);
+    return function() {
+      var mat = mat4.create();
+      return function() {
+        mat4.mul(mat, transform, mat);
+        return mat4.clone(mat);
+      };
+    }.bind(this);
+  }
+
+  _buildPolarPattern(axis, offset, angleDeg) {
+    return function(mesh) {
+      vec3.transformMat4(_TMP_COPY_CENTER, mesh.getCenter(), mesh.getMatrix());
+      var angle = angleDeg * Math.PI / 180.0;
+      var transform = this._createPolarMatrix(_TMP_COPY_CENTER, axis, offset, angle);
+      var mat = mat4.create();
+      return function() {
+        mat4.mul(mat, transform, mat);
+        return mat4.clone(mat);
+      };
+    }.bind(this);
+  }
+
+  _addMeshes(meshes, mesh) {
+    if (!meshes.length)
+      return;
+
+    Array.prototype.push.apply(this._meshes, meshes);
+    this._stateManager.pushStateAdd(meshes);
+    if (mesh !== undefined)
+      this.setMesh(mesh);
+    else
+      this.setMesh(meshes[meshes.length - 1]);
+  }
+
+  _createPolarMatrix(center, axis, offset, angleRad) {
+    var mat = mat4.create();
+    if (offset[0] || offset[1] || offset[2])
+      mat4.translate(mat, mat, offset);
+    mat4.translate(mat, mat, center);
+    mat4.rotate(mat, mat, angleRad, axis);
+    mat4.translate(mat, mat, [-center[0], -center[1], -center[2]]);
+    return mat;
+  }
+
+  _getAxisVector(axisIndex) {
+    return axisIndex === 0 ? [1, 0, 0] : axisIndex === 1 ? [0, 1, 0] : [0, 0, 1];
+  }
+
+  _getAxisIndex(axisIndex) {
+    var axis = Math.round(Number(axisIndex));
+    return axis !== 0 && axis !== 1 && axis !== 2 ? 2 : axis;
+  }
+
+  _getPatternCount(count, meshes) {
+    var countInt = Math.floor(Number(count));
+    if (!Number.isFinite(countInt) || countInt <= 0)
+      return 0;
+
+    var meshCount = meshes.length;
+    if (!meshCount)
+      return 0;
+
+    for (var i = 0; i < meshCount; ++i) {
+      if (!meshes[i] || typeof meshes[i].getNbTriangles !== 'function') {
+        console.error('Invalid mesh detected at index', i);
+        window.alert('One or more selected meshes are invalid. Please reselect and try again.');
+        return 0;
+      }
+    }
+
+    var maxSelectionCount = Math.floor(20 / meshCount);
+    if (maxSelectionCount < 1)
+      return 0;
+
+    var totalTriangles = 0;
+    for (var j = 0; j < meshCount; ++j) {
+      try {
+        var triangles = meshes[j].getNbTriangles();
+        if (!Number.isFinite(triangles) || triangles < 0) {
+          console.error('Invalid triangle count for mesh', j, ':', triangles);
+          window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
+          return 0;
+        }
+        totalTriangles += triangles;
+      } catch (error) {
+        console.error('Error getting triangle count for mesh', j, ':', error);
+        window.alert('Error analyzing mesh geometry. Please try with different meshes.');
+        return 0;
+      }
+    }
+
+    if (totalTriangles === 0) {
+      window.alert('Selected meshes have no triangles. Cannot duplicate empty meshes.');
+      return 0;
+    }
+
+    var maxTrianglesLimit = Math.floor(1000000 / totalTriangles);
+    if (maxTrianglesLimit < 1) {
+      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
+      return 0;
+    }
+
+    var maxCopies = Math.min(countInt, maxSelectionCount, maxTrianglesLimit);
+    if (countInt > maxCopies) {
+      console.warn('Pattern duplication reduced from', countInt, 'to', maxCopies, 'to avoid excessive geometry.');
+      console.info('Mesh count:', meshCount, 'Total triangles:', totalTriangles, 'Max copies allowed:', maxCopies);
+    }
+    return maxCopies;
+  }
+
+  _getFiniteNumber(value) {
+    var number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+  }
+
+  _getPolarOffset(radius, axisIndex) {
+    return radius ? (axisIndex === 0 ? [0, radius, 0] : [radius, 0, 0]) : [0, 0, 0];
+  }
+
+  onLoadAlphaImage(img, name, controller) {
+    var canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    var data = ctx.getImageData(0, 0, img.width, img.height).data;
+    var alpha = data.subarray(0, data.length / 4);
+    for (var i = 0, j = 0, l = alpha.length; i < l; ++i, j += 4) {
+      alpha[i] = Math.round((data[j] + data[j + 1] + data[j + 2]) / 3);
+    }
+    var alphas = {};
+    alphas[name = Gui.addAlpha(alpha, img.width, img.height, name)._name] = name;
+    this.getGui().addAlphaOptions(alphas);
+    if (controller && controller._ctrlAlpha) controller._ctrlAlpha.setValue(name);
+  }
+}
+
+export default Scene;
