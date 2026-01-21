@@ -132,7 +132,7 @@ class GuiPattern {
     }
 
     try {
-      this._main.createPattern(configs, this._origin === 'WORLD');
+      this._main.createPattern(configs, this._origin == = 'WORLD');
     } catch (e) {
       console.error(e);
       window.alert('Error creating pattern.');
