@@ -23,11 +23,11 @@ class GuiScene {
     // selection stuffs
     menu.addTitle(TR('sceneSelection'));
     menu.addButton(TR('sceneSelectAll'), this, 'selectAll');
-    
-    // --- NUEVOS BOTONES DE NAVEGACIÓN ---
-    menu.addButton('Select Next', this, 'selectNext');         // Seleccionar Siguiente
-    menu.addButton('Select Previous', this, 'selectPrevious'); // Seleccionar Anterior
-    // ------------------------------------
+
+    // --- RESTAURADO: Botones de Navegación ---
+    menu.addButton('Select Next', this, 'selectNext');
+    menu.addButton('Select Previous', this, 'selectPrevious');
+    // -----------------------------------------
 
     menu.addButton(TR('sceneSelectMore'), this, 'selectMore');
     menu.addButton(TR('sceneSelectLess'), this, 'selectLess');
@@ -48,8 +48,7 @@ class GuiScene {
     this._ctrlOffSym = menu.addSlider('SymOffset', 0.0, this.onOffsetSymmetry.bind(this), -1.0, 1.0, 0.001);
   }
 
-  // --- LÓGICA DE SELECCIÓN SECUENCIAL ---
-  
+  // --- Lógica para seleccionar siguiente/anterior ---
   selectNext() {
     var meshes = this._main.getMeshes();
     if (meshes.length === 0) return;
@@ -57,10 +56,8 @@ class GuiScene {
     var currentMesh = this._main.getMesh();
     var index = meshes.indexOf(currentMesh);
 
-    // Calcula el siguiente índice (circular)
+    // Si no hay selección, empezamos en 0, si hay, avanzamos uno circularmente
     var nextIndex = (index + 1) % meshes.length;
-    
-    // setMesh deselecciona automáticamente el anterior si no se pasa el flag multiselect
     this._main.setMesh(meshes[nextIndex]);
   }
 
@@ -71,16 +68,12 @@ class GuiScene {
     var currentMesh = this._main.getMesh();
     var index = meshes.indexOf(currentMesh);
 
-    // Si no hay nada seleccionado (index -1), ir al último
+    // Si no hay selección, vamos al último. Si hay, retrocedemos circularmente.
     if (index === -1) index = 0;
-
-    // Calcula el índice anterior (circular)
     var prevIndex = (index - 1 + meshes.length) % meshes.length;
-
     this._main.setMesh(meshes[prevIndex]);
   }
-
-  // --------------------------------------
+  // --------------------------------------------------
 
   clearScene() {
     if (window.confirm(TR('sceneResetConfirm'))) {
