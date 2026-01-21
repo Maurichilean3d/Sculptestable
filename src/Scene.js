@@ -814,58 +814,77 @@ class Scene {
     return copy;
   }
 
-  _duplicateSelectionPattern(count, transformFn) {
+  _duplicateSelectionPattern(count, transformFactory) {
     if (!this._selectMeshes.length)
       return;
 
     var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes);
-    if (count <= 0)
+    var plan = this._getPatternPlan(count, meshes);
+    if (!plan || plan.count <= 0)
       return;
+
+    count = plan.count;
+    var stats = plan.stats;
+    var estimatedBytes = stats.totalBytes ? stats.totalBytes * count * plan.byteMultiplier : 0;
+    console.info('Pattern preflight:', {
+      meshes: stats.meshCount,
+      copies: meshes.length * count,
+      triangles: stats.totalTriangles,
+      vertices: stats.totalVertices,
+      estimatedBytes: estimatedBytes,
+      estimatedTriangles: stats.totalTriangles * count,
+      estimatedVertices: stats.totalVertices * count
+    });
 
     var copies = [];
 
     try {
+      var transforms = new Array(meshes.length);
+      for (var t = 0; t < meshes.length; ++t)
+        transforms[t] = transformFactory(meshes[t]);
+
       for (var step = 1; step <= count; ++step) {
         for (var i = 0; i < meshes.length; ++i) {
           var baseMesh = meshes[i];
           var copy = this._createMeshCopy(baseMesh);
-          this._applyMeshTransform(copy, transformFn(baseMesh, step));
+          this._applyMeshTransform(copy, transforms[i]());
           copies.push(copy);
         }
       }
 
-      // Add all new meshes to state manager in one operation
-      if (newMeshes.length > 0) {
-        this._stateManager.pushStateAdd(newMeshes);
-        console.info('Successfully created', newMeshes.length, 'pattern copies');
-      }
     } catch (e) {
       console.error('Pattern duplication failed:', e);
-      // Remove any partially created meshes
-      for (var j = 0; j < newMeshes.length; ++j) {
-        var idx = this._meshes.indexOf(newMeshes[j]);
-        if (idx >= 0) this._meshes.splice(idx, 1);
-      }
       alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
       return;
     }
 
     this._addMeshes(copies, meshes[meshes.length - 1]);
+    if (copies.length > 0)
+      console.info('Successfully created', copies.length, 'pattern copies');
   }
 
   _buildLinearPattern(axis, spacing) {
-    return function (baseMesh, step) {
-      var offset = vec3.scale(_TMP_COPY_OFFSET, axis, spacing * step);
-      return this._createTranslationMatrix(offset);
+    var stepOffset = vec3.scale([0, 0, 0], axis, spacing);
+    var stepTransform = this._createTranslationMatrix(stepOffset);
+    return function () {
+      var current = mat4.create();
+      return function () {
+        mat4.mul(current, stepTransform, current);
+        return mat4.clone(current);
+      };
     }.bind(this);
   }
 
   _buildPolarPattern(axis, offset, angleDeg) {
-    return function (baseMesh, step) {
+    return function (baseMesh) {
       var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
-      var angle = angleDeg * step * Math.PI / 180.0;
-      return this._createPolarMatrix(baseCenter, axis, offset, angle);
+      var angle = angleDeg * Math.PI / 180.0;
+      var stepTransform = this._createPolarMatrix(baseCenter, axis, offset, angle);
+      var current = mat4.create();
+      return function () {
+        mat4.mul(current, stepTransform, current);
+        return mat4.clone(current);
+      };
     }.bind(this);
   }
 
@@ -904,67 +923,128 @@ class Scene {
     return idx;
   }
 
-  _getPatternCount(count, meshes) {
-    var safeCount = Math.floor(Number(count));
-    if (!Number.isFinite(safeCount) || safeCount <= 0)
-      return 0;
-
+  _getPatternStats(meshes) {
     var meshCount = meshes.length;
     if (!meshCount)
-      return 0;
+      return null;
 
     // Validate all meshes before proceeding
     for (var j = 0; j < meshCount; ++j) {
-      if (!meshes[j] || typeof meshes[j].getNbTriangles !== 'function') {
+      if (!meshes[j] || typeof meshes[j].getNbTriangles !== 'function' || typeof meshes[j].getNbVertices !== 'function') {
         console.error('Invalid mesh detected at index', j);
         window.alert('One or more selected meshes are invalid. Please reselect and try again.');
-        return 0;
+        return null;
       }
     }
 
-    var maxCopies = 20;
-    var maxPerMesh = Math.floor(maxCopies / meshCount);
-    if (maxPerMesh < 1)
-      return 0;
-
-    // Calculate total triangles with validation
     var totalTriangles = 0;
+    var totalVertices = 0;
+    var totalBytes = 0;
     for (var i = 0; i < meshCount; ++i) {
       try {
         var nbTriangles = meshes[i].getNbTriangles();
+        var nbVertices = meshes[i].getNbVertices();
+        var meshBytes = this._estimateMeshBytes(meshes[i]);
         if (!Number.isFinite(nbTriangles) || nbTriangles < 0) {
           console.error('Invalid triangle count for mesh', i, ':', nbTriangles);
           window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
-          return 0;
+          return null;
+        }
+        if (!Number.isFinite(nbVertices) || nbVertices < 0) {
+          console.error('Invalid vertex count for mesh', i, ':', nbVertices);
+          window.alert('Unable to calculate mesh complexity. Please try with different meshes.');
+          return null;
         }
         totalTriangles += nbTriangles;
+        totalVertices += nbVertices;
+        totalBytes += meshBytes;
       } catch (e) {
-        console.error('Error getting triangle count for mesh', i, ':', e);
+        console.error('Error getting mesh stats for mesh', i, ':', e);
         window.alert('Error analyzing mesh geometry. Please try with different meshes.');
-        return 0;
+        return null;
       }
     }
 
-    // Safety check for total triangles
     if (totalTriangles === 0) {
       window.alert('Selected meshes have no triangles. Cannot duplicate empty meshes.');
-      return 0;
+      return null;
     }
+
+    return {
+      meshCount: meshCount,
+      totalTriangles: totalTriangles,
+      totalVertices: totalVertices,
+      totalBytes: totalBytes
+    };
+  }
+
+  _estimateMeshBytes(mesh) {
+    if (!mesh || typeof mesh.getMeshData !== 'function')
+      return 0;
+
+    var meshData = mesh.getMeshData();
+    if (!meshData)
+      return 0;
+
+    var bytes = 0;
+    for (var key in meshData) {
+      if (!Object.prototype.hasOwnProperty.call(meshData, key))
+        continue;
+
+      var value = meshData[key];
+      if (value && ArrayBuffer.isView(value) && Number.isFinite(value.byteLength))
+        bytes += value.byteLength;
+    }
+    return bytes;
+  }
+
+  _getPatternPlan(count, meshes) {
+    var safeCount = Math.floor(Number(count));
+    if (!Number.isFinite(safeCount) || safeCount <= 0)
+      return null;
+
+    var stats = this._getPatternStats(meshes);
+    if (!stats)
+      return null;
+
+    var maxCopies = 20;
+    var maxPerMesh = Math.floor(maxCopies / stats.meshCount);
+    if (maxPerMesh < 1)
+      return null;
 
     var maxTotalTriangles = 1000000;
-    var maxByTriangles = Math.floor(maxTotalTriangles / totalTriangles);
+    var maxByTriangles = Math.floor(maxTotalTriangles / stats.totalTriangles);
     if (maxByTriangles < 1) {
       window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
-      return 0;
+      return null;
     }
 
-    var maxAllowed = Math.min(safeCount, maxPerMesh, maxByTriangles);
+    var maxTotalVertices = 2000000;
+    var maxByVertices = Math.floor(maxTotalVertices / stats.totalVertices);
+    if (maxByVertices < 1) {
+      window.alert('Selected meshes are too dense to duplicate safely. Try decimating or reducing the selection.');
+      return null;
+    }
+
+    var byteMultiplier = 2;
+    var maxTotalBytes = 256 * 1024 * 1024;
+    var maxByBytes = stats.totalBytes ? Math.floor(maxTotalBytes / (stats.totalBytes * byteMultiplier)) : safeCount;
+    if (maxByBytes < 1) {
+      window.alert('Selected meshes are too large to duplicate safely. Try decimating or reducing the selection.');
+      return null;
+    }
+
+    var maxAllowed = Math.min(safeCount, maxPerMesh, maxByTriangles, maxByVertices, maxByBytes);
     if (safeCount > maxAllowed) {
       console.warn('Pattern duplication reduced from', safeCount, 'to', maxAllowed, 'to avoid excessive geometry.');
-      console.info('Mesh count:', meshCount, 'Total triangles:', totalTriangles, 'Max copies allowed:', maxAllowed);
+      console.info('Mesh count:', stats.meshCount, 'Total triangles:', stats.totalTriangles, 'Total vertices:', stats.totalVertices, 'Max copies allowed:', maxAllowed);
     }
 
-    return maxAllowed;
+    return {
+      count: maxAllowed,
+      stats: stats,
+      byteMultiplier: byteMultiplier
+    };
   }
 
   _getFiniteNumber(value) {
