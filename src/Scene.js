@@ -576,39 +576,33 @@ class Scene {
   }
 
   /**
-   * Powerful Pattern Tool (Supports Grid/Array logic)
-   * @param {Array} patterns Array of config objects { count, offset, rotate, scale }
-   * @param {Boolean} useWorldReference True = Orbit/Global, False = Relative/Local
+   * Unified Pattern Logic
+   * Handles both simple Linear patterns and nested Grid/Array patterns.
    */
   createPattern(patterns, useWorldReference) {
     if (!this._selectMeshes.length) return;
     if (!patterns || !patterns.length) return;
 
-    // 1. Calculate Total Copies (Safety Check)
+    // 1. Safety Check: Total Copies
     var totalCopies = 1;
     for (var p = 0; p < patterns.length; ++p) {
       totalCopies *= Math.max(1, Math.floor(patterns[p].count));
     }
     
-    // Safety Limit: Prevent Browser Crash
     var HARD_LIMIT = 200; 
     if (totalCopies > HARD_LIMIT) {
-      if (!window.confirm(`Warning: You are creating ${totalCopies} copies. This may slow down or freeze your browser. Continue?`)) return;
+      if (!window.confirm(`Warning: This will create ${totalCopies} copies. Continue?`)) return;
     }
 
-    // 2. Setup Loop
-    // We start with the selection. 
-    // For each Level, we duplicate the ENTIRE previous set (Grid logic).
-    
-    var currentGeneration = this._selectMeshes.slice(); // Starts with selection
-    var allNewCopies = []; // Accumulator for undo/history
+    // 2. Loop Logic
+    var currentGeneration = this._selectMeshes.slice();
+    var allNewCopies = []; 
 
     try {
-      // Loop through Levels (0, 1, 2)
       for (var d = 0; d < patterns.length; ++d) {
         var config = patterns[d];
         var count = Math.floor(config.count);
-        if (count <= 1) continue; // No duplication for this dimension
+        if (count <= 1) continue; 
 
         var stepMatrix = mat4.create();
         mat4.identity(stepMatrix);
@@ -618,43 +612,31 @@ class Scene {
         if (config.rotate[2]) mat4.rotateZ(stepMatrix, stepMatrix, config.rotate[2] * Math.PI / 180);
         if (config.scale) mat4.scale(stepMatrix, stepMatrix, config.scale);
 
-        // We duplicate the CURRENT generation
-        // To make a Grid: If we have 3 items in X, and want 2 in Y.
-        // We take the 3 items, and duplicate them once (translated in Y).
-        
-        var nextGeneration = currentGeneration.slice(); // Start with what we have
-
-        // Prepare Transform Matrix Accumulator
+        var nextGeneration = currentGeneration.slice(); 
         var accumMatrix = mat4.create();
         mat4.identity(accumMatrix);
 
         for (var c = 1; c < count; ++c) {
-          mat4.mul(accumMatrix, accumMatrix, stepMatrix); // Accumulate Step
+          mat4.mul(accumMatrix, accumMatrix, stepMatrix); 
           
-          // Duplicate everything in current generation
           for (var m = 0; m < currentGeneration.length; ++m) {
              var baseMesh = currentGeneration[m];
              var copy = this._createMeshCopy(baseMesh);
 
-             // Apply Transform
              if (useWorldReference) {
-               // World/Global: New = Transform * Old (Pre-multiply)
-               // This makes rotation happen around (0,0,0)
+               // World Mode: Rotate around global center 0,0,0
                mat4.mul(copy.getMatrix(), accumMatrix, copy.getMatrix());
                mat4.mul(copy.getEditMatrix(), accumMatrix, copy.getEditMatrix());
              } else {
-               // Local/Relative: New = Old * Transform (Post-multiply)
-               // This makes rotation happen locally or moves relative to object axis
+               // Local Mode: Standard relative transformation
                mat4.mul(copy.getMatrix(), copy.getMatrix(), accumMatrix);
                mat4.mul(copy.getEditMatrix(), copy.getEditMatrix(), accumMatrix);
              }
 
-             nextGeneration.push(copy); // Add to pool for next dimension
-             allNewCopies.push(copy);   // Add to final scene list
+             nextGeneration.push(copy); 
+             allNewCopies.push(copy);   
           }
         }
-        
-        // Update generation for next loop (Grid Logic: Input for next level is everything we just made)
         currentGeneration = nextGeneration; 
       }
       
@@ -664,7 +646,6 @@ class Scene {
       return;
     }
 
-    // Add all generated copies to scene
     this._addMeshes(allNewCopies, allNewCopies[allNewCopies.length-1]);
   }
 
