@@ -23,6 +23,7 @@ var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
 var _TMP_COPY_CENTER = vec3.create();
+var _TMP_COPY_OFFSET = vec3.create(); // Added missing var used in polar/linear pattern helpers if needed
 
 class Scene {
 
@@ -790,10 +791,11 @@ class Scene {
     if (!this._selectMeshes.length) return;
 
     var meshes = this._selectMeshes.slice();
-    var plan = this._getPatternPlan(count, meshes);
-    if (!plan || plan.count <= 0) return;
+    // FIX: Use _getPatternCount instead of _getPatternPlan
+    var safeCount = this._getPatternCount(count, meshes);
+    if (safeCount <= 0) return;
 
-    count = plan.count;
+    count = safeCount;
     var copies = [];
 
     // Create the step matrix
@@ -823,8 +825,6 @@ class Scene {
           var copy = this._createMeshCopy(baseMesh);
           
           // Apply transformation to copy
-          // Note: This applies relative to the object's local space or world depending on usage.
-          // For a standard pattern, we often want relative to current position.
           this._applyMeshTransform(copy, currentMatrix);
           
           copies.push(copy);
@@ -910,41 +910,6 @@ class Scene {
     }
 
     return copy;
-  }
-
-  _addMeshes(meshes, selectMesh) {
-    if (!meshes.length)
-      return;
-
-    var meshes = this._selectMeshes.slice();
-    count = this._getPatternCount(count, meshes);
-    if (count <= 0)
-      return;
-
-    var copies = [];
-    try {
-      var transforms = new Array(meshes.length);
-      for (var i = 0; i < meshes.length; ++i) {
-        transforms[i] = transformFactory(meshes[i]);
-      }
-
-      for (var copyIndex = 1; copyIndex <= count; ++copyIndex) {
-        for (var meshIndex = 0; meshIndex < meshes.length; ++meshIndex) {
-          var mesh = meshes[meshIndex];
-          var copy = this._createMeshCopy(mesh);
-          this._applyMeshTransform(copy, transforms[meshIndex]());
-          copies.push(copy);
-        }
-      }
-    } catch (error) {
-      console.error('Pattern duplication failed:', error);
-      window.alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
-      return;
-    }
-
-    this._addMeshes(copies, meshes[meshes.length - 1]);
-    if (copies.length > 0)
-      console.info('Successfully created', copies.length, 'pattern copies');
   }
 
   _buildLinearPattern(axis, spacing) {
