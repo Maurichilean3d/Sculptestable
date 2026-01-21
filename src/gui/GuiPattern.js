@@ -73,8 +73,14 @@ class GuiPattern {
       return;
     }
 
-    if (!this._main.getSelectedMeshes().length) {
+    var selection = this._main.getSelectedMeshes();
+    if (!selection.length) {
       window.alert('Please select at least one mesh before applying a pattern.');
+      return;
+    }
+
+    if (selection.length > 1) {
+      window.alert('Please select a single mesh before applying a pattern.');
       return;
     }
 
