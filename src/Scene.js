@@ -1,4 +1,4 @@
-import { vec3, mat4 } from 'gl-matrix';
+import { vec3, mat4, quat } from 'gl-matrix';
 import getOptionsURL from 'misc/getOptionsURL';
 import Enums from 'misc/Enums';
 import Utils from 'misc/Utils';
@@ -23,7 +23,6 @@ var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
 var _TMP_COPY_CENTER = vec3.create();
-var _TMP_COPY_OFFSET = vec3.create();
 
 class Scene {
 
@@ -779,33 +778,71 @@ class Scene {
     this.setMesh(mesh);
   }
 
-  duplicateSelectionLinear(count, spacing, axisIndex) {
-    spacing = this._getFiniteNumber(spacing);
-    axisIndex = this._getAxisIndex(axisIndex);
+  /**
+   * Unified Pattern Tool
+   * Replaces Linear/Polar with a single matrix-based approach.
+   * @param {number} count Number of copies
+   * @param {vec3} offsetXYZ Translation per step
+   * @param {vec3} rotateXYZ Rotation per step (in degrees)
+   * @param {vec3} scaleXYZ Scale per step (default [1,1,1])
+   */
+  duplicateSelectionGeneric(count, offsetXYZ, rotateXYZ, scaleXYZ) {
+    if (!this._selectMeshes.length) return;
 
-    var axis = this._getAxisVector(axisIndex);
-    this._duplicateSelectionPattern(count, this._buildLinearPattern(axis, spacing));
-  }
+    var meshes = this._selectMeshes.slice();
+    var plan = this._getPatternPlan(count, meshes);
+    if (!plan || plan.count <= 0) return;
 
-  duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
-    angleDeg = this._getFiniteNumber(angleDeg);
-    radius = this._getFiniteNumber(radius);
-    axisIndex = this._getAxisIndex(axisIndex);
+    count = plan.count;
+    var copies = [];
 
-    var axis = this._getAxisVector(axisIndex);
-    var offset = this._getPolarOffset(radius, axisIndex);
-    this._duplicateSelectionPattern(count, this._buildPolarPattern(axis, offset, angleDeg));
+    // Create the step matrix
+    var stepMatrix = mat4.create();
+    mat4.identity(stepMatrix);
+    
+    // Apply transformations in order: Translate -> Rotate -> Scale
+    mat4.translate(stepMatrix, stepMatrix, offsetXYZ);
+    
+    if (rotateXYZ[0] !== 0) mat4.rotateX(stepMatrix, stepMatrix, rotateXYZ[0] * Math.PI / 180);
+    if (rotateXYZ[1] !== 0) mat4.rotateY(stepMatrix, stepMatrix, rotateXYZ[1] * Math.PI / 180);
+    if (rotateXYZ[2] !== 0) mat4.rotateZ(stepMatrix, stepMatrix, rotateXYZ[2] * Math.PI / 180);
+    
+    if (scaleXYZ) mat4.scale(stepMatrix, stepMatrix, scaleXYZ);
+
+    try {
+      // Current accumulated matrix
+      var currentMatrix = mat4.create();
+      mat4.identity(currentMatrix);
+
+      for (var step = 1; step <= count; ++step) {
+        // Accumulate transformation
+        mat4.mul(currentMatrix, currentMatrix, stepMatrix);
+
+        for (var i = 0; i < meshes.length; ++i) {
+          var baseMesh = meshes[i];
+          var copy = this._createMeshCopy(baseMesh);
+          
+          // Apply transformation to copy
+          // Note: This applies relative to the object's local space or world depending on usage.
+          // For a standard pattern, we often want relative to current position.
+          this._applyMeshTransform(copy, currentMatrix);
+          
+          copies.push(copy);
+        }
+      }
+
+    } catch (e) {
+      console.error('Pattern duplication failed:', e);
+      window.alert('Failed to create pattern copies.');
+      return;
+    }
+
+    this._addMeshes(copies, meshes[meshes.length - 1]);
   }
 
   _applyMeshTransform(mesh, transform) {
     mat4.mul(mesh.getMatrix(), transform, mesh.getMatrix());
     mat4.mul(mesh.getEditMatrix(), transform, mesh.getEditMatrix());
-  }
-
-  _createTranslationMatrix(offset) {
-    var mat = mat4.create();
-    mat4.translate(mat, mat, offset);
-    return mat;
   }
 
   _createMeshCopy(mesh) {
@@ -858,7 +895,6 @@ class Scene {
     if (srcData._DAtexCoordsST) dstData._DAtexCoordsST = srcData._DAtexCoordsST.slice();
 
     // 6. Octree (Order is critical: Compute Octree -> Update Center)
-    // El orden aquí es vital para evitar el error del popup.
     copy.computeOctree(); 
     copy.updateCenter();
 
@@ -876,66 +912,6 @@ class Scene {
     return copy;
   }
 
-  _duplicateSelectionPattern(count, transformFactory) {
-    if (!this._selectMeshes.length)
-      return;
-
-    var meshes = this._selectMeshes.slice();
-    var plan = this._getPatternPlan(count, meshes);
-    if (!plan || plan.count <= 0)
-      return;
-
-    count = plan.count;
-    var copies = [];
-
-    try {
-      var transforms = new Array(meshes.length);
-      for (var t = 0; t < meshes.length; ++t)
-        transforms[t] = transformFactory(meshes[t]);
-
-      for (var step = 1; step <= count; ++step) {
-        for (var i = 0; i < meshes.length; ++i) {
-          var baseMesh = meshes[i];
-          var copy = this._createMeshCopy(baseMesh);
-          this._applyMeshTransform(copy, transforms[i]());
-          copies.push(copy);
-        }
-      }
-
-    } catch (e) {
-      console.error('Pattern duplication failed:', e);
-      window.alert('Failed to create pattern copies. Try reducing the number of copies or selected meshes.');
-      return;
-    }
-
-    this._addMeshes(copies, meshes[meshes.length - 1]);
-  }
-
-  _buildLinearPattern(axis, spacing) {
-    var stepOffset = vec3.scale([0, 0, 0], axis, spacing);
-    var stepTransform = this._createTranslationMatrix(stepOffset);
-    return function () {
-      var current = mat4.create();
-      return function () {
-        mat4.mul(current, stepTransform, current);
-        return mat4.clone(current);
-      };
-    }.bind(this);
-  }
-
-  _buildPolarPattern(axis, offset, angleDeg) {
-    return function (baseMesh) {
-      var baseCenter = vec3.transformMat4(_TMP_COPY_CENTER, baseMesh.getCenter(), baseMesh.getMatrix());
-      var angle = angleDeg * Math.PI / 180.0;
-      var stepTransform = this._createPolarMatrix(baseCenter, axis, offset, angle);
-      var current = mat4.create();
-      return function () {
-        mat4.mul(current, stepTransform, current);
-        return mat4.clone(current);
-      };
-    }.bind(this);
-  }
-
   _addMeshes(meshes, selectMesh) {
     if (!meshes.length)
       return;
@@ -946,29 +922,6 @@ class Scene {
       this.setMesh(selectMesh);
     else
       this.setMesh(meshes[meshes.length - 1]);
-  }
-
-  _createPolarMatrix(center, axis, offset, angle) {
-    var mat = mat4.create();
-    if (offset[0] || offset[1] || offset[2])
-      mat4.translate(mat, mat, offset);
-    mat4.translate(mat, mat, center);
-    mat4.rotate(mat, mat, angle, axis);
-    mat4.translate(mat, mat, [-center[0], -center[1], -center[2]]);
-    return mat;
-  }
-
-  _getAxisVector(axisIndex) {
-    if (axisIndex === 0) return [1, 0, 0];
-    if (axisIndex === 1) return [0, 1, 0];
-    return [0, 0, 1];
-  }
-
-  _getAxisIndex(axisIndex) {
-    var idx = Math.round(Number(axisIndex));
-    if (idx !== 0 && idx !== 1 && idx !== 2)
-      return 2;
-    return idx;
   }
 
   _getPatternStats(meshes) {
@@ -1032,13 +985,6 @@ class Scene {
   _getFiniteNumber(value) {
     var num = Number(value);
     return Number.isFinite(num) ? num : 0;
-  }
-
-  _getPolarOffset(radius, axisIndex) {
-    if (!radius)
-      return [0, 0, 0];
-    if (axisIndex === 0) return [0, radius, 0];
-    return [radius, 0, 0];
   }
 
   onLoadAlphaImage(img, name, tool) {
