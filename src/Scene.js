@@ -23,6 +23,11 @@ var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
 
+// Constantes para el Gizmo de Orientación
+var GIZMO_VIEWPORT_SIZE = 100; // Tamaño en píxeles
+var GIZMO_OFFSET_X = 10;
+var GIZMO_OFFSET_Y = 10;
+
 class Scene {
 
   constructor() {
@@ -69,6 +74,9 @@ class Scene {
     this._autoRotateAxis = 1;
     this._autoRotatePivot = 0;
     this._autoRotateLastTime = null;
+
+    // Orientation Gizmo Meshes
+    this._gizmoArrows = []; 
   }
 
   start() {
@@ -82,12 +90,41 @@ class Scene {
     this._rttTransparent = new Rtt(this._gl, null, this._rttOpaque.getDepth(), true);
     this._grid = Primitives.createGrid(this._gl);
     this.initGrid();
+    
+    // Inicializar el Gizmo de Orientación (Flechas RGB)
+    this._initOrientationGizmo();
+
     this.loadTextures();
     this._gui.initGui();
     this.onCanvasResize();
     var modelURL = getOptionsURL().modelurl;
     if (modelURL) this.addModelURL(modelURL);
     else this.addSphere();
+  }
+
+  _initOrientationGizmo() {
+    var gl = this._gl;
+    // X Axis (Rojo)
+    var arrowX = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
+    arrowX.setFlatColor([0.8, 0.1, 0.1]); // Rojo
+    var matX = arrowX.getMatrix();
+    mat4.rotateZ(matX, matX, -Math.PI / 2); // Orientar en X
+    
+    // Y Axis (Verde)
+    var arrowY = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
+    arrowY.setFlatColor([0.1, 0.8, 0.1]); // Verde
+    // Por defecto apunta arriba (Y)
+
+    // Z Axis (Azul)
+    var arrowZ = Primitives.createArrow(gl, 0.08, 1.5, 0.3, 0.4);
+    arrowZ.setFlatColor([0.1, 0.1, 0.8]); // Azul
+    var matZ = arrowZ.getMatrix();
+    mat4.rotateX(matZ, matZ, Math.PI / 2); // Orientar en Z
+
+    this._gizmoArrows = [arrowX, arrowY, arrowZ];
+    
+    // Configurar Shader Flat para que no le afecten luces complejas
+    this._gizmoArrows.forEach(m => m.setShaderType(Enums.Shader.FLAT));
   }
 
   addModelURL(url) {
@@ -119,6 +156,7 @@ class Scene {
   getStateManager() { return this._stateManager; }
   setMesh(mesh) { return this.setOrUnsetMesh(mesh); }
   setCanvasCursor(style) { this._canvas.style.cursor = style; }
+  
   setAutoRotateEnabled(enabled) {
     this._autoRotateEnabled = enabled;
     this._autoRotateLastTime = null;
@@ -257,16 +295,57 @@ class Scene {
     this.updateMatricesAndSort();
     var gl = this._gl;
     if (!gl) return;
+    
+    // 1. Dibujar Escena Principal
     if (this._drawFullScene) this._drawScene();
+    
     gl.disable(gl.DEPTH_TEST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._rttMerge.getFramebuffer());
     this._rttMerge.render(this);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     this._rttOpaque.render(this);
     gl.enable(gl.DEPTH_TEST);
+    
     this._sculptManager.postRender();
+
+    // 2. DIBUJAR GIZMO DE ORIENTACIÓN (Esquina Superior Derecha)
+    this._drawOrientationGizmo();
+
     if (this._autoRotateEnabled && this._mesh) this.render();
   }
+
+  // --- Nueva función para el Gizmo ---
+  _drawOrientationGizmo() {
+    var gl = this._gl;
+    var cw = this._canvasWidth;
+    var ch = this._canvasHeight;
+
+    // Configurar viewport pequeño en la esquina superior derecha
+    gl.viewport(cw - GIZMO_VIEWPORT_SIZE - GIZMO_OFFSET_X, ch - GIZMO_VIEWPORT_SIZE - GIZMO_OFFSET_Y, GIZMO_VIEWPORT_SIZE, GIZMO_VIEWPORT_SIZE);
+    
+    // Limpiar depth para que se dibuje encima de todo
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+
+    // Crear una cámara temporal que solo rota
+    // Usamos una cámara fija alejada para ver el gizmo
+    var gizmoCam = new Camera(this); 
+    gizmoCam._view = mat4.clone(this._camera._view); // Copiar rotación de la cámara principal
+    
+    // Anular la traslación de la cámara (queremos que rote sobre sí misma 0,0,0)
+    gizmoCam._view[12] = 0;
+    gizmoCam._view[13] = 0;
+    gizmoCam._view[14] = -5.0; // Alejar un poco para ver las flechas
+
+    // Renderizar flechas
+    this._gizmoArrows.forEach(arrow => {
+        arrow.updateMatrices(gizmoCam);
+        arrow.render(this);
+    });
+
+    // Restaurar viewport original
+    gl.viewport(0, 0, cw, ch);
+  }
+  // -----------------------------------
 
   _drawScene() {
     var gl = this._gl;
@@ -575,6 +654,7 @@ class Scene {
     this.setMesh(mesh);
   }
 
+  // --- FUNCIÓN RESTAURADA Y MEJORADA PARA PATTERN TOOL ---
   createPattern(patterns, useWorldReference) {
     if (!this._selectMeshes.length) return;
     if (!patterns || !patterns.length) return;
@@ -615,7 +695,7 @@ class Scene {
           
           for (var m = 0; m < currentGeneration.length; ++m) {
              var baseMesh = currentGeneration[m];
-             var copy = this._createMeshCopy(baseMesh);
+             var copy = this._createMeshCopy(baseMesh); // Deep copy aquí
 
              if (useWorldReference) {
                mat4.mul(copy.getMatrix(), accumMatrix, copy.getMatrix());
@@ -625,7 +705,7 @@ class Scene {
                mat4.mul(copy.getEditMatrix(), copy.getEditMatrix(), accumMatrix);
              }
 
-             // FIX: Actualizar Bounding Box inmediatamente para que el picking (selección) funcione
+             // FIX: Actualizar caja de colisión inmediatamente para selección
              copy.updateMatrices(this._camera);
 
              nextGeneration.push(copy); 
@@ -662,15 +742,15 @@ class Scene {
     if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD instanceof Uint32Array ? new Uint32Array(srcData._UVfacesABCD) : new Uint16Array(srcData._UVfacesABCD);
     if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
 
-    // FIX: Deep Copy de matrices para independencia total
+    // FIX: Copia profunda de matrices para independencia total
     mat4.copy(copy.getMatrix(), mesh.getMatrix());
     mat4.copy(copy.getEditMatrix(), mesh.getEditMatrix());
     vec3.copy(copy.getCenter(), mesh.getCenter());
 
     copy.copyRenderConfig(mesh);
     copy.computeOctree(); 
+    copy.updateCenter();
     
-    // Inicialización de renderizado
     copy.initRender();
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
