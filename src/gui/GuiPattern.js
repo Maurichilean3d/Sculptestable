@@ -3,104 +3,165 @@ import TR from 'gui/GuiTR';
 class GuiPattern {
 
   constructor(guiParent, ctrlGui) {
+    this._guiParent = guiParent; // Guardamos referencia para reconstruir el menú
     this._main = ctrlGui._main;
     this._menu = null;
 
-    // Configuración: 3 Niveles de anidación para crear patrones complejos
-    // count: Cantidad total (1 = desactivado)
-    this._configs = [
-      // Nivel 1: Patrón Base (ej. Línea en X)
-      { count: 3, offset: [2.0, 0.0, 0.0], rotate: [0, 0, 0], scale: [1, 1, 1] },
-      // Nivel 2: Multiplicador (ej. Filas en Y)
-      { count: 1, offset: [0.0, 2.0, 0.0], rotate: [0, 0, 0], scale: [1, 1, 1] },
-      // Nivel 3: Multiplicador (ej. Altura en Z)
-      { count: 1, offset: [0.0, 0.0, 2.0], rotate: [0, 0, 0], scale: [1, 1, 1] }
-    ];
+    // Estado de la UI
+    this._mode = 'LINEAR'; // 'LINEAR' o 'GRID'
+    this._origin = 'LOCAL'; // 'LOCAL' o 'WORLD'
 
-    // 0 = Local (Relativo al objeto), 1 = World (Global 0,0,0)
-    this._referenceMode = 0; 
+    // Parámetros Lineales (y Circulares)
+    this._linCount = 3;
+    this._linOffset = [2.0, 0.0, 0.0];
+    this._linRotate = [0.0, 0.0, 0.0];
+    this._linScale = [1.0, 1.0, 1.0];
 
-    this._isPatternOperationInProgress = false;
-    this.init(guiParent);
+    // Parámetros Grid (Rejilla)
+    this._gridCount = [3, 1, 1]; // X, Y, Z
+    this._gridSpace = [2.0, 2.0, 2.0]; // X, Y, Z
+
+    this._isOperation = false;
+    
+    // Iniciar UI
+    this.init();
   }
 
-  init(guiParent) {
-    if (this._menu) this._menu.remove();
+  init() {
+    // 1. Limpieza: Si el menú ya existe, lo eliminamos para redibujar limpio
+    if (this._menu) {
+      this._menu.remove();
+      this._menu = null;
+    }
 
-    var menu = this._menu = guiParent.addMenu(TR('sceneCopyPattern')); // "Pattern"
+    // 2. Crear Menú Principal
+    var menu = this._menu = this._guiParent.addMenu(TR('sceneCopyPattern'));
 
-    // --- Configuración Global ---
-    menu.addTitle('Settings');
-    menu.addCombobox('Origin', this._referenceMode, this.onReferenceChange.bind(this), { 
-      'Local (Object Axis)': 0, 
-      'World (Global 0,0,0)': 1 
+    // --- SECCIÓN 1: TIPO DE PATRÓN ---
+    menu.addTitle('Pattern Type');
+    menu.addCombobox('Mode', this._mode, this.onModeChange.bind(this), {
+      'Linear / Radial': 'LINEAR',
+      'Grid (2D/3D)': 'GRID'
     });
 
-    // --- Generar UI para los 3 Niveles ---
-    // Nivel 1
-    this.addStageUI(menu, 0, 'Level 1 (Main Pattern)');
-    
-    // Nivel 2 (Separador visual)
-    this.addStageUI(menu, 1, 'Level 2 (Grid / Array)');
-    
-    // Nivel 3
-    this.addStageUI(menu, 2, 'Level 3 (Volume / Stack)');
+    menu.addCombobox('Pivot', this._origin, this.onOriginChange.bind(this), {
+      'Selection (Local)': 'LOCAL',
+      'World Center (0,0,0)': 'WORLD'
+    });
 
-    // --- Botón de Acción ---
-    menu.addTitle('Generate');
+    // --- SECCIÓN 2: CONTROLES DINÁMICOS ---
+    if (this._mode === 'LINEAR') {
+      this.buildLinearUI(menu);
+    } else {
+      this.buildGridUI(menu);
+    }
+
+    // --- SECCIÓN 3: ACCIÓN ---
+    menu.addTitle('Action');
     menu.addButton(TR('sceneCopyPatternApply'), this, 'applyPattern');
   }
 
-  addStageUI(menu, index, title) {
-    var config = this._configs[index];
-    
-    menu.addTitle(title);
-    
-    // Count (Cantidad)
-    menu.addSlider('Count', config.count, (val) => { config.count = val; }, 1, 20, 1);
+  // --- UI Builders ---
 
-    // Offset (Distancia) - Rango pequeño para precisión (-5 a 5)
-    menu.addSlider('Offset X', config.offset[0], (val) => { config.offset[0] = val; }, -5, 5, 0.01);
-    menu.addSlider('Offset Y', config.offset[1], (val) => { config.offset[1] = val; }, -5, 5, 0.01);
-    menu.addSlider('Offset Z', config.offset[2], (val) => { config.offset[2] = val; }, -5, 5, 0.01);
+  buildLinearUI(menu) {
+    menu.addTitle('Linear Parameters');
+    
+    // Cantidad
+    menu.addSlider('Count', this._linCount, (v) => { this._linCount = v; }, 1, 50, 1);
 
-    // Rotate (Rotación)
-    menu.addSlider('Rot X', config.rotate[0], (val) => { config.rotate[0] = val; }, -180, 180, 1);
-    menu.addSlider('Rot Y', config.rotate[1], (val) => { config.rotate[1] = val; }, -180, 180, 1);
-    menu.addSlider('Rot Z', config.rotate[2], (val) => { config.rotate[2] = val; }, -180, 180, 1);
+    // Traslación (Espaciado)
+    menu.addTitle('Distance (Offset)');
+    menu.addSlider('X', this._linOffset[0], (v) => { this._linOffset[0] = v; }, -10, 10, 0.01);
+    menu.addSlider('Y', this._linOffset[1], (v) => { this._linOffset[1] = v; }, -10, 10, 0.01);
+    menu.addSlider('Z', this._linOffset[2], (v) => { this._linOffset[2] = v; }, -10, 10, 0.01);
+
+    // Rotación
+    menu.addTitle('Rotation (Step)');
+    menu.addSlider('Rot X', this._linRotate[0], (v) => { this._linRotate[0] = v; }, -180, 180, 1);
+    menu.addSlider('Rot Y', this._linRotate[1], (v) => { this._linRotate[1] = v; }, -180, 180, 1);
+    menu.addSlider('Rot Z', this._linRotate[2], (v) => { this._linRotate[2] = v; }, -180, 180, 1);
+
+    // Escala
+    menu.addTitle('Scale (Step)');
+    menu.addSlider('Scale', this._linScale[0], (v) => { 
+      this._linScale = [v, v, v]; // Escala uniforme simple
+    }, 0.1, 2.0, 0.01);
   }
 
-  onReferenceChange(val) {
-    this._referenceMode = parseInt(val, 10);
+  buildGridUI(menu) {
+    menu.addTitle('Grid Dimensions (X * Y * Z)');
+    
+    // Columnas (X)
+    menu.addSlider('Count X', this._gridCount[0], (v) => { this._gridCount[0] = v; }, 1, 20, 1);
+    menu.addSlider('Space X', this._gridSpace[0], (v) => { this._gridSpace[0] = v; }, -10, 10, 0.01);
+
+    // Filas (Y)
+    menu.addSlider('Count Y', this._gridCount[1], (v) => { this._gridCount[1] = v; }, 1, 20, 1);
+    menu.addSlider('Space Y', this._gridSpace[1], (v) => { this._gridSpace[1] = v; }, -10, 10, 0.01);
+
+    // Altura (Z)
+    menu.addSlider('Count Z', this._gridCount[2], (v) => { this._gridCount[2] = v; }, 1, 20, 1);
+    menu.addSlider('Space Z', this._gridSpace[2], (v) => { this._gridSpace[2] = v; }, -10, 10, 0.01);
   }
+
+  // --- Eventos ---
+
+  onModeChange(val) {
+    this._mode = val;
+    this.init(); // Reconstruir menú instantáneamente
+  }
+
+  onOriginChange(val) {
+    this._origin = val;
+  }
+
+  // --- Lógica de Aplicación ---
 
   applyPattern() {
-    if (this._isPatternOperationInProgress) return;
+    if (this._isOperation) return;
 
     var selection = this._main.getSelectedMeshes();
     if (!selection.length) {
-      window.alert('Please select a mesh to duplicate.');
+      window.alert('Select a mesh first.');
       return;
     }
 
-    // Validación simple
-    if (this._configs[0].count === 1 && this._configs[1].count === 1 && this._configs[2].count === 1) {
-      window.alert('All counts are set to 1. Increase "Count" in Level 1 to create copies.');
-      return;
-    }
+    this._isOperation = true;
 
-    this._isPatternOperationInProgress = true;
+    // Construir la configuración para Scene.js
+    var configs = [];
+
+    if (this._mode === 'LINEAR') {
+      // Modo Lineal: Un solo paso complejo
+      configs.push({
+        count: this._linCount,
+        offset: this._linOffset,
+        rotate: this._linRotate,
+        scale: this._linScale
+      });
+    } else {
+      // Modo Grid: 3 pasos simples (X, luego Y, luego Z)
+      // X
+      if (this._gridCount[0] > 1) {
+        configs.push({ count: this._gridCount[0], offset: [this._gridSpace[0], 0, 0], rotate: [0,0,0], scale: [1,1,1] });
+      }
+      // Y
+      if (this._gridCount[1] > 1) {
+        configs.push({ count: this._gridCount[1], offset: [0, this._gridSpace[1], 0], rotate: [0,0,0], scale: [1,1,1] });
+      }
+      // Z
+      if (this._gridCount[2] > 1) {
+        configs.push({ count: this._gridCount[2], offset: [0, 0, this._gridSpace[2]], rotate: [0,0,0], scale: [1,1,1] });
+      }
+    }
 
     try {
-      this._main.createPattern(
-        this._configs, 
-        this._referenceMode === 1 // true = World, false = Local
-      );
+      this._main.createPattern(configs, this._origin === 'WORLD');
     } catch (e) {
       console.error(e);
-      window.alert('Error generating pattern.');
+      window.alert('Error creating pattern.');
     } finally {
-      this._isPatternOperationInProgress = false;
+      this._isOperation = false;
     }
   }
 }
