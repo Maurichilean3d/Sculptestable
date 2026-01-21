@@ -5,6 +5,7 @@ import GuiCamera from 'gui/GuiCamera';
 import GuiConfig from 'gui/GuiConfig';
 import GuiFiles from 'gui/GuiFiles';
 import GuiMesh from 'gui/GuiMesh';
+import GuiPattern from 'gui/GuiPattern';
 import GuiTopology from 'gui/GuiTopology';
 import GuiRendering from 'gui/GuiRendering';
 import GuiScene from 'gui/GuiScene';
@@ -34,6 +35,7 @@ class Gui {
     this._ctrlSculpting = null;
     this._ctrlTopology = null;
     this._ctrlRendering = null;
+    this._ctrlPattern = null;
 
     this._ctrlNotification = null;
 
@@ -71,6 +73,7 @@ class Gui {
     ctrls[idc++] = this._ctrlRendering = new GuiRendering(this._sidebar, this);
     ctrls[idc++] = this._ctrlTopology = new GuiTopology(this._sidebar, this);
     ctrls[idc++] = this._ctrlSculpting = new GuiSculpting(this._sidebar, this);
+    ctrls[idc++] = this._ctrlPattern = new GuiPattern(this._sidebar, this);
 
     // gui extra
     var extra = this._topbar.addExtra();
