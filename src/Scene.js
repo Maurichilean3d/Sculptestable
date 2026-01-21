@@ -23,7 +23,7 @@ var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
 var _TMP_COPY_CENTER = vec3.create();
-var _TMP_COPY_OFFSET = vec3.create(); // Added missing var used in polar/linear pattern helpers if needed
+var _TMP_COPY_OFFSET = vec3.create();
 
 class Scene {
 
@@ -816,6 +816,9 @@ class Scene {
       var currentMatrix = mat4.create();
       mat4.identity(currentMatrix);
 
+      // SAFETY: Limit loops to avoid total browser freeze
+      if (count > 50) count = 50; 
+
       for (var step = 1; step <= count; ++step) {
         // Accumulate transformation
         mat4.mul(currentMatrix, currentMatrix, stepMatrix);
@@ -855,7 +858,13 @@ class Scene {
     dstData._nbFaces = srcData._nbFaces;
     dstData._nbTexCoords = srcData._nbTexCoords;
 
-    // 2. Copy main buffers
+    // 2. ALLOCATE BEFORE COPYING
+    // Important: allocateArrays() might overwrite buffers with new typed arrays (zeros).
+    // We must allocate first, THEN slice data into them, or simply overwrite the properties.
+    // If we call allocateArrays() after slicing, we might wipe our data.
+    copy.allocateArrays(); 
+
+    // 3. Copy/Overwrite main buffers
     if (srcData._verticesXYZ) dstData._verticesXYZ = srcData._verticesXYZ.slice();
     if (srcData._colorsRGB) dstData._colorsRGB = srcData._colorsRGB.slice();
     if (srcData._materialsPBR) dstData._materialsPBR = srcData._materialsPBR.slice();
@@ -866,9 +875,6 @@ class Scene {
     if (srcData._texCoordsST) dstData._texCoordsST = srcData._texCoordsST.slice();
     if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD.slice();
     if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
-
-    // 3. Helper Allocations (Creates internal arrays)
-    copy.allocateArrays(); 
 
     // 4. Overwrite Topology with Slices (Fast Path)
     if (srcData._vertRingFace) dstData._vertRingFace = srcData._vertRingFace.slice();
