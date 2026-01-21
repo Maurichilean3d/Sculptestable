@@ -1,4 +1,4 @@
-import { vec3, mat4 } from 'gl-matrix';
+import { vec3, mat4, quat } from 'gl-matrix';
 import getOptionsURL from 'misc/getOptionsURL';
 import Enums from 'misc/Enums';
 import Utils from 'misc/Utils';
@@ -23,7 +23,6 @@ var _TMP_AUTO_ROT_CENTER = vec3.create();
 var _TMP_AUTO_ROT_AXIS = vec3.create();
 var _TMP_AUTO_ROT_MAT = mat4.create();
 var _TMP_COPY_CENTER = vec3.create();
-var _TMP_COPY_OFFSET = vec3.create();
 
 class Scene {
 
@@ -779,22 +778,66 @@ class Scene {
     this.setMesh(mesh);
   }
 
-  duplicateSelectionLinear(count, spacing, axisIndex) {
-    spacing = this._getFiniteNumber(spacing);
-    axisIndex = this._getAxisIndex(axisIndex);
+  /**
+   * Unified Pattern Tool
+   * Replaces Linear/Polar with a single matrix-based approach.
+   * @param {number} count Number of copies
+   * @param {vec3} offsetXYZ Translation per step
+   * @param {vec3} rotateXYZ Rotation per step (in degrees)
+   * @param {vec3} scaleXYZ Scale per step (default [1,1,1])
+   */
+  duplicateSelectionGeneric(count, offsetXYZ, rotateXYZ, scaleXYZ) {
+    if (!this._selectMeshes.length) return;
 
-    var axis = this._getAxisVector(axisIndex);
-    this._duplicateSelectionPattern(count, this._buildLinearPattern(axis, spacing));
-  }
+    var meshes = this._selectMeshes.slice();
+    var plan = this._getPatternPlan(count, meshes);
+    if (!plan || plan.count <= 0) return;
 
-  duplicateSelectionPolar(count, angleDeg, radius, axisIndex) {
-    angleDeg = this._getFiniteNumber(angleDeg);
-    radius = this._getFiniteNumber(radius);
-    axisIndex = this._getAxisIndex(axisIndex);
+    count = plan.count;
+    var copies = [];
 
-    var axis = this._getAxisVector(axisIndex);
-    var offset = this._getPolarOffset(radius, axisIndex);
-    this._duplicateSelectionPattern(count, this._buildPolarPattern(axis, offset, angleDeg));
+    // Create the step matrix
+    var stepMatrix = mat4.create();
+    mat4.identity(stepMatrix);
+    
+    // Apply transformations in order: Translate -> Rotate -> Scale
+    mat4.translate(stepMatrix, stepMatrix, offsetXYZ);
+    
+    if (rotateXYZ[0] !== 0) mat4.rotateX(stepMatrix, stepMatrix, rotateXYZ[0] * Math.PI / 180);
+    if (rotateXYZ[1] !== 0) mat4.rotateY(stepMatrix, stepMatrix, rotateXYZ[1] * Math.PI / 180);
+    if (rotateXYZ[2] !== 0) mat4.rotateZ(stepMatrix, stepMatrix, rotateXYZ[2] * Math.PI / 180);
+    
+    if (scaleXYZ) mat4.scale(stepMatrix, stepMatrix, scaleXYZ);
+
+    try {
+      // Current accumulated matrix
+      var currentMatrix = mat4.create();
+      mat4.identity(currentMatrix);
+
+      for (var step = 1; step <= count; ++step) {
+        // Accumulate transformation
+        mat4.mul(currentMatrix, currentMatrix, stepMatrix);
+
+        for (var i = 0; i < meshes.length; ++i) {
+          var baseMesh = meshes[i];
+          var copy = this._createMeshCopy(baseMesh);
+          
+          // Apply transformation to copy
+          // Note: This applies relative to the object's local space or world depending on usage.
+          // For a standard pattern, we often want relative to current position.
+          this._applyMeshTransform(copy, currentMatrix);
+          
+          copies.push(copy);
+        }
+      }
+
+    } catch (e) {
+      console.error('Pattern duplication failed:', e);
+      window.alert('Failed to create pattern copies.');
+      return;
+    }
+
+    this._addMeshes(copies, meshes[meshes.length - 1]);
   }
 
   _applyMeshTransform(mesh, transform) {
@@ -802,36 +845,32 @@ class Scene {
     mat4.mul(mesh.getEditMatrix(), transform, mesh.getEditMatrix());
   }
 
-  _createTranslationMatrix(offset) {
-    var mat = mat4.create();
-    mat4.translate(mat, mat, offset);
-    return mat;
-  }
-
   _createMeshCopy(mesh) {
     var copy = new MeshStatic(mesh.getGL());
-    
-    // Manual Deep Copy of MeshData
     var srcData = mesh.getMeshData();
     var dstData = copy.getMeshData();
 
-    // 1. Basic Geometry
-    if (srcData._verticesXYZ) dstData._verticesXYZ = srcData._verticesXYZ.slice();
-    if (srcData._normalsXYZ) dstData._normalsXYZ = srcData._normalsXYZ.slice();
-    if (srcData._colorsRGB) dstData._colorsRGB = srcData._colorsRGB.slice();
-    if (srcData._materialsPBR) dstData._materialsPBR = srcData._materialsPBR.slice();
-    if (srcData._facesABCD) dstData._facesABCD = srcData._facesABCD.slice();
-
+    // 1. Setup Counts
     dstData._nbVertices = srcData._nbVertices;
     dstData._nbFaces = srcData._nbFaces;
+    dstData._nbTexCoords = srcData._nbTexCoords;
 
-    // 2. UVs (Copy directly to avoid re-computation)
+    // 2. Copy main buffers
+    if (srcData._verticesXYZ) dstData._verticesXYZ = srcData._verticesXYZ.slice();
+    if (srcData._colorsRGB) dstData._colorsRGB = srcData._colorsRGB.slice();
+    if (srcData._materialsPBR) dstData._materialsPBR = srcData._materialsPBR.slice();
+    if (srcData._normalsXYZ) dstData._normalsXYZ = srcData._normalsXYZ.slice();
+    if (srcData._facesABCD) dstData._facesABCD = srcData._facesABCD.slice();
+    
+    // UVs
     if (srcData._texCoordsST) dstData._texCoordsST = srcData._texCoordsST.slice();
     if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD.slice();
     if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
-    dstData._nbTexCoords = srcData._nbTexCoords;
 
-    // 3. Topology (The heavy stuff - copy directly)
+    // 3. Helper Allocations (Creates internal arrays)
+    copy.allocateArrays(); 
+
+    // 4. Overwrite Topology with Slices (Fast Path)
     if (srcData._vertRingFace) dstData._vertRingFace = srcData._vertRingFace.slice();
     if (srcData._vrvStartCount) dstData._vrvStartCount = srcData._vrvStartCount.slice();
     if (srcData._vrfStartCount) dstData._vrfStartCount = srcData._vrfStartCount.slice();
@@ -844,36 +883,26 @@ class Scene {
     if (srcData._trianglesABC) dstData._trianglesABC = srcData._trianglesABC.slice();
     if (srcData._UVtrianglesABC) dstData._UVtrianglesABC = srcData._UVtrianglesABC.slice();
 
-    // 4. Spatial Data
     if (srcData._faceNormalsXYZ) dstData._faceNormalsXYZ = srcData._faceNormalsXYZ.slice();
     if (srcData._faceCentersXYZ) dstData._faceCentersXYZ = srcData._faceCentersXYZ.slice();
     if (srcData._faceBoxes) dstData._faceBoxes = srcData._faceBoxes.slice();
 
-    // 5. DrawArrays Cache (Crucial for performance)
+    // 5. DrawArrays Cache
     if (srcData._DAverticesXYZ) dstData._DAverticesXYZ = srcData._DAverticesXYZ.slice();
     if (srcData._DAnormalsXYZ) dstData._DAnormalsXYZ = srcData._DAnormalsXYZ.slice();
     if (srcData._DAcolorsRGB) dstData._DAcolorsRGB = srcData._DAcolorsRGB.slice();
     if (srcData._DAmaterialsPBR) dstData._DAmaterialsPBR = srcData._DAmaterialsPBR.slice();
     if (srcData._DAtexCoordsST) dstData._DAtexCoordsST = srcData._DAtexCoordsST.slice();
 
-    // 6. Flags & Temp Arrays (Allocate new to avoid shared state issues)
-    dstData._vertTagFlags = new Int32Array(dstData._nbVertices);
-    dstData._vertSculptFlags = new Int32Array(dstData._nbVertices);
-    dstData._vertStateFlags = new Int32Array(dstData._nbVertices);
-    dstData._vertProxy = new Float32Array(dstData._nbVertices * 3);
-    dstData._facesTagFlags = new Int32Array(dstData._nbFaces);
-    
-    // 7. Octree (Recompute is safer and fast enough)
-    dstData._facePosInLeaf = new Uint32Array(dstData._nbFaces);
-    dstData._faceLeaf = new Array(dstData._nbFaces);
+    // 6. Octree (Order is critical: Compute Octree -> Update Center)
+    copy.computeOctree(); 
     copy.updateCenter();
-    copy.computeOctree();
 
-    // 8. Transform & Render Config
+    // 7. Render Config
     copy.copyTransformData(mesh);
     copy.copyRenderConfig(mesh);
     
-    // 9. Initialize Render (Upload to GPU)
+    // 8. Init Render
     copy.initRender();
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
@@ -883,8 +912,8 @@ class Scene {
     return copy;
   }
 
-  _duplicateSelectionPattern(count, transformFactory) {
-    if (!this._selectMeshes.length)
+  _addMeshes(meshes, selectMesh) {
+    if (!meshes.length)
       return;
 
     var meshes = this._selectMeshes.slice();

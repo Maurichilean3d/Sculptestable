@@ -5,71 +5,54 @@ class GuiPattern {
   constructor(guiParent, ctrlGui) {
     this._main = ctrlGui._main;
     this._menu = null;
-    this._copyPatternType = 0;
-    this._copyPatternCount = 3;
-    this._copyPatternSpacing = 10;
-    this._copyPatternAngle = 30;
-    this._copyPatternRadius = 20;
-    this._copyPatternAxis = 2;
+    
+    // Unified Parameters
+    this._patternCount = 3;
+    this._patternTranslate = [10, 0, 0]; // X, Y, Z
+    this._patternRotate = [0, 0, 0];     // X, Y, Z (Degrees)
+    this._patternScale = [1, 1, 1];      // X, Y, Z (Not exposed in UI to keep simple, but supported in logic)
+
     this._isPatternOperationInProgress = false;
-    this._ctrlCopyPatternSpacing = null;
-    this._ctrlCopyPatternAngle = null;
-    this._ctrlCopyPatternRadius = null;
     this.init(guiParent);
   }
 
   init(guiParent) {
-    var menu = this._menu = guiParent.addMenu(TR('sceneCopyPattern'));
+    var menu = this._menu = guiParent.addMenu(TR('sceneCopyPattern')); // "Pattern"
 
-    menu.addCombobox(TR('sceneCopyPatternType'), this._copyPatternType, this.onCopyPatternType.bind(this), [
-      TR('sceneCopyPatternLinear'),
-      TR('sceneCopyPatternPolar')
-    ]);
-    menu.addSlider(TR('sceneCopyPatternCount'), this._copyPatternCount, this.onCopyPatternCount.bind(this), 1, 20, 1);
-    this._ctrlCopyPatternSpacing = menu.addSlider(TR('sceneCopyPatternSpacing'), this._copyPatternSpacing, this.onCopyPatternSpacing.bind(this), 0, 100, 1);
-    this._ctrlCopyPatternAngle = menu.addSlider(TR('sceneCopyPatternAngle'), this._copyPatternAngle, this.onCopyPatternAngle.bind(this), 0, 360, 1);
-    this._ctrlCopyPatternRadius = menu.addSlider(TR('sceneCopyPatternRadius'), this._copyPatternRadius, this.onCopyPatternRadius.bind(this), 0, 100, 1);
-    menu.addCombobox(TR('sceneCopyPatternAxis'), this._copyPatternAxis, this.onCopyPatternAxis.bind(this), ['X', 'Y', 'Z']);
-    menu.addButton(TR('sceneCopyPatternApply'), this, 'applyCopyPattern');
+    // 1. Quantity
+    menu.addSlider(TR('sceneCopyPatternCount'), this._patternCount, this.onPatternCount.bind(this), 1, 20, 1);
 
-    this.updateCopyPatternControls();
+    // 2. Translation (Step Offset)
+    menu.addTitle(TR('sceneCopyPatternSpacing') + ' (Offset)');
+    menu.addSlider('X', this._patternTranslate[0], this.onPatternTranslateX.bind(this), -100, 100, 0.5);
+    menu.addSlider('Y', this._patternTranslate[1], this.onPatternTranslateY.bind(this), -100, 100, 0.5);
+    menu.addSlider('Z', this._patternTranslate[2], this.onPatternTranslateZ.bind(this), -100, 100, 0.5);
+
+    // 3. Rotation (Step Rotation)
+    menu.addTitle(TR('sceneCopyPatternAngle') + ' (Rotate)');
+    menu.addSlider('X', this._patternRotate[0], this.onPatternRotateX.bind(this), -180, 180, 1);
+    menu.addSlider('Y', this._patternRotate[1], this.onPatternRotateY.bind(this), -180, 180, 1);
+    menu.addSlider('Z', this._patternRotate[2], this.onPatternRotateZ.bind(this), -180, 180, 1);
+
+    // 4. Action Button
+    menu.addButton(TR('sceneCopyPatternApply'), this, 'applyPattern');
   }
 
-  onCopyPatternType(val) {
-    this._copyPatternType = val;
-    this.updateCopyPatternControls();
-  }
+  onPatternCount(val) { this._patternCount = val; }
 
-  onCopyPatternCount(val) {
-    this._copyPatternCount = val;
-  }
+  // Translation Handlers
+  onPatternTranslateX(val) { this._patternTranslate[0] = val; }
+  onPatternTranslateY(val) { this._patternTranslate[1] = val; }
+  onPatternTranslateZ(val) { this._patternTranslate[2] = val; }
 
-  onCopyPatternSpacing(val) {
-    this._copyPatternSpacing = val;
-  }
+  // Rotation Handlers
+  onPatternRotateX(val) { this._patternRotate[0] = val; }
+  onPatternRotateY(val) { this._patternRotate[1] = val; }
+  onPatternRotateZ(val) { this._patternRotate[2] = val; }
 
-  onCopyPatternAngle(val) {
-    this._copyPatternAngle = val;
-  }
-
-  onCopyPatternRadius(val) {
-    this._copyPatternRadius = val;
-  }
-
-  onCopyPatternAxis(val) {
-    this._copyPatternAxis = val;
-  }
-
-  updateCopyPatternControls() {
-    var isLinear = this._copyPatternType === 0;
-    this._ctrlCopyPatternSpacing.setVisibility(isLinear);
-    this._ctrlCopyPatternAngle.setVisibility(!isLinear);
-    this._ctrlCopyPatternRadius.setVisibility(!isLinear);
-  }
-
-  applyCopyPattern() {
+  applyPattern() {
     if (this._isPatternOperationInProgress) {
-      console.warn('Pattern operation already in progress, ignoring duplicate request');
+      console.warn('Pattern operation already in progress.');
       return;
     }
 
@@ -80,18 +63,22 @@ class GuiPattern {
     }
 
     if (selection.length > 1) {
-      window.alert('Please select a single mesh before applying a pattern.');
+      window.alert('Please select a single mesh for pattern generation (for now).');
       return;
     }
 
     this._isPatternOperationInProgress = true;
 
     try {
-      if (this._copyPatternType === 0) {
-        this._main.duplicateSelectionLinear(this._copyPatternCount, this._copyPatternSpacing, this._copyPatternAxis);
-      } else {
-        this._main.duplicateSelectionPolar(this._copyPatternCount, this._copyPatternAngle, this._copyPatternRadius, this._copyPatternAxis);
-      }
+      // Call the unified function in Scene.js
+      this._main.duplicateSelectionGeneric(
+        this._patternCount,
+        this._patternTranslate,
+        this._patternRotate,
+        this._patternScale
+      );
+    } catch (e) {
+      console.error(e);
     } finally {
       this._isPatternOperationInProgress = false;
     }
