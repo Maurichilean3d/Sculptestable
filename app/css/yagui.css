@@ -50,7 +50,7 @@ body {
 
   /* Fondo moderno y limpio */
   background:
-    radial-gradient(circle at 50% 20%, #fefefe 0%, #f5f6fa 42%, #eceff5 100%);
+    radial-gradient(circle at 50% 18%, #f6f7fb 0%, #eef1f6 45%, #e5e9f0 100%);
 }
 
 #tablet-plugin {
@@ -128,6 +128,23 @@ body {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.gui-topbar > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.gui-topbar > span > ul {
+  list-style: none;
+  margin: 0 6px;
+  padding: 0;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
 /* Dropdown (iPad friendly) */
 .gui-topbar > ul > li > ul {
   position: absolute;
@@ -190,7 +207,7 @@ body {
   bottom: calc(var(--safe-bottom) + var(--gap)) !important;
   width: var(--sidebar-w) !important;
 
-  background: var(--glass-bg);
+  background: rgba(255, 255, 255, 0.84);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
@@ -202,6 +219,12 @@ body {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.gui-sidebar:hover {
+  opacity: 1;
 }
 
 /* Scrollbar */
