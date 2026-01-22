@@ -34,12 +34,12 @@ class GuiPattern {
     menu.addTitle('Settings');
     
     menu.addCombobox('Type', this._mode, this.onModeChange.bind(this), {
-      'Linear (Line/Circle)': 'LINEAR',
-      'Grid (Per Axis)': 'GRID'
+      LINEAR: 'Linear (Line/Circle)',
+      GRID: 'Grid (Per Axis)'
     });
 
     menu.addCombobox('Reference', this._origin, this.onOriginChange.bind(this), {
-      'Default': 'LOCAL' 
+      LOCAL: 'Default'
     });
 
     // --- 2. PARÁMETROS ---
@@ -91,6 +91,7 @@ class GuiPattern {
   }
 
   onModeChange(val) {
+    if (val === this._mode) return;
     this._mode = val;
     this.init(); 
   }
