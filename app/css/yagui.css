@@ -36,24 +36,25 @@ body {
 
 /* --- ESTILO APPLE GLASSMORPHISM --- */
 :root {
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-border: 1px solid rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(245, 245, 247, 0.85);
+  --glass-border: 1px solid rgba(0, 0, 0, 0.1);
   --glass-blur: blur(20px);
   --accent-color: #007aff;
-  --hover-color: rgba(0, 122, 255, 0.08);
+  --hover-color: rgba(0, 122, 255, 0.1);
   --text-primary: #1d1d1f;
   --text-secondary: #86868b;
+  --separator: rgba(0, 0, 0, 0.08);
   --radius: 16px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
 }
 
 /****** SIDE BAR (Panel Lateral Flotante) ******/
 .gui-sidebar {
   position: absolute;
-  top: 70px !important;
+  top: 80px !important;
   right: 20px !important;
   bottom: 20px !important;
-  width: 280px !important;
+  width: 320px !important;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -64,24 +65,25 @@ body {
   overflow-y: auto;
   z-index: 10;
   transition: transform 0.3s ease;
-  padding: 16px;
+  padding: 20px;
 }
 
 /* Scrollbar estilo macOS */
 .gui-sidebar::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 .gui-sidebar::-webkit-scrollbar-track {
   background: transparent;
+  margin: 8px;
 }
 .gui-sidebar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 .gui-sidebar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.3);
   background-clip: padding-box;
 }
 
@@ -91,17 +93,21 @@ body {
 
 /****** CARPETAS / ACORDEONES ******/
 .gui-sidebar > ul > label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   display: block;
-  padding: 16px 8px 8px 8px;
+  padding: 20px 12px 12px 12px;
   cursor: pointer;
-  border-bottom: none;
-  margin-bottom: 8px;
+  border-bottom: 1px solid var(--separator);
+  margin-bottom: 12px;
   transition: color 0.2s;
+}
+
+.gui-sidebar > ul > label:first-child {
+  padding-top: 0;
 }
 
 .gui-sidebar > ul > label:hover {
@@ -111,14 +117,15 @@ body {
 /* Flechas estilo SF Symbols */
 .gui-sidebar > ul > label:before {
   display: inline-block;
-  margin-right: 6px;
-  font-size: 10px;
+  margin-right: 8px;
+  font-size: 11px;
   transition: transform 0.25s ease;
   color: var(--text-secondary);
 }
 .gui-sidebar > ul[opened=true] > label:before {
   content: '▼';
   transform: rotate(0deg);
+  color: var(--text-primary);
 }
 .gui-sidebar > ul[opened=false] > label:before {
   content: '▶'; 
@@ -128,26 +135,28 @@ body {
 .gui-sidebar > ul {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 16px 0;
   overflow: hidden;
   transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .gui-sidebar > ul[opened=true] {
-  max-height: 2000px;
+  max-height: 3000px;
 }
 .gui-sidebar > ul[opened=false] {
-  max-height: 40px;
+  max-height: 45px;
 }
 
 .gui-sidebar > ul > li {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
-  min-height: 32px;
-  padding: 4px 8px;
-  border-radius: 8px;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 10px;
   transition: background 0.2s;
+  gap: 12px;
 }
 
 .gui-sidebar > ul > li:hover {
@@ -159,62 +168,77 @@ body {
 /* Etiquetas */
 .gui-label-side {
   color: var(--text-primary);
-  width: 45%;
-  font-size: 13px;
-  font-weight: 400;
+  width: auto;
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
   padding-left: 0;
   display: flex;
   align-items: center;
+  white-space: nowrap;
+}
+
+/* Contenedor de controles */
+.gui-sidebar > ul > li > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 /* Inputs Numéricos */
 .gui-input-number {
-  background: rgba(0, 0, 0, 0.04);
+  background: white;
   color: var(--text-primary);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
   text-align: right;
-  width: 20% !important;
+  min-width: 60px !important;
+  width: auto !important;
   font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   transition: all 0.2s;
 }
 .gui-input-number:focus {
   border-color: var(--accent-color);
-  background: rgba(255, 255, 255, 0.9);
+  background: white;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
 }
 
 /* Sliders */
 .gui-slider {
-  background: rgba(0, 0, 0, 0.08);
-  height: 4px !important;
-  border-radius: 2px;
-  margin-top: 0;
-  width: 35% !important;
+  background: rgba(0, 0, 0, 0.12);
+  height: 6px !important;
+  border-radius: 3px;
+  margin: 0;
+  min-width: 120px !important;
+  width: auto !important;
   cursor: pointer;
   position: relative;
+  flex: 1;
 }
 .gui-slider > div {
   background: var(--accent-color);
   height: 100%;
-  border-radius: 2px;
+  border-radius: 3px;
   box-shadow: none;
   position: relative;
 }
 .gui-slider > div::after {
   content: '';
   position: absolute;
-  right: -6px;
+  right: -8px;
   top: 50%;
   transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   background: white;
   border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Checkboxes estilo iOS */
@@ -222,20 +246,22 @@ body {
   display: none;
 }
 .gui-input-checkbox + label {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.15);
   border: none;
-  border-radius: 10px;
-  width: 42px;
-  height: 24px;
+  border-radius: 16px;
+  width: 51px !important;
+  height: 31px !important;
   transition: background 0.3s;
   position: relative;
   cursor: pointer;
+  display: block;
+  flex-shrink: 0;
 }
 .gui-input-checkbox + label::before {
   content: '';
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 27px;
+  height: 27px;
   border-radius: 50%;
   top: 2px;
   left: 2px;
@@ -248,7 +274,7 @@ body {
   background: var(--accent-color);
 }
 .gui-input-checkbox:checked + label::before {
-  left: 20px;
+  left: 22px;
   border: none;
 }
 
@@ -257,45 +283,49 @@ body {
   background: var(--accent-color);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  font-size: 13px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
   text-transform: none;
   transition: all 0.2s;
-  height: 32px !important;
-  line-height: 32px;
-  padding: 0 16px;
+  height: 36px !important;
+  line-height: 36px;
+  padding: 0 20px !important;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  width: 100% !important;
+  text-align: center;
 }
 .gui-button:hover {
   background: #0051d5;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
 }
 .gui-button:active {
   transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Selects */
 .gui-select {
-  background: rgba(0, 0, 0, 0.04);
+  background: white;
   color: var(--text-primary);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 13px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 120px;
 }
 .gui-select:hover {
-  border-color: rgba(0, 0, 0, 0.15);
+  border-color: rgba(0, 0, 0, 0.25);
 }
 .gui-select:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
 }
 
 /****** COLORES Y PICKERS ******/
@@ -303,14 +333,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 .gui-widget-color > input {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  width: 32px;
-  height: 32px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  width: 40px !important;
+  height: 40px !important;
 }
 
 /****** TOP BAR (Barra Superior Flotante) ******/
@@ -318,14 +349,14 @@ body {
   position: absolute;
   top: 20px;
   left: 20px;
-  right: 320px;
-  height: 44px;
+  right: 360px;
+  height: 52px;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
-  border-radius: 12px;
-  padding: 0 16px;
+  border-radius: 14px;
+  padding: 0 20px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -338,18 +369,21 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
+  height: 100%;
 }
 
 .gui-topbar ul > li {
   color: var(--text-primary);
-  font-weight: 400;
-  font-size: 13px;
-  padding: 0 16px;
-  height: 44px;
-  line-height: 44px;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 0 20px;
+  height: 100%;
+  display: flex;
+  align-items: center;
   transition: all 0.2s;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
+  position: relative;
 }
 
 .gui-topbar ul > li:hover {
@@ -359,27 +393,32 @@ body {
 
 /* Menús Desplegables de la Topbar */
 .gui-topbar ul > li > ul {
-  top: 52px !important;
+  position: absolute;
+  top: 60px !important;
   left: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(245, 245, 247, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   padding: 8px;
-  min-width: 200px;
+  min-width: 220px;
+  list-style: none;
 }
 
 .gui-topbar ul > li > ul > li {
-  border-radius: 6px;
-  padding: 8px 12px;
+  border-radius: 8px;
+  padding: 10px 14px;
   margin: 2px 0;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: auto;
+  cursor: pointer;
 }
 
 .gui-topbar ul > li > ul > li:hover {
@@ -389,6 +428,15 @@ body {
 
 .shortcut {
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 12px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Mono", monospace;
+  font-weight: 400;
+  margin-left: 20px;
+}
+
+/* Separadores en menús */
+.gui-topbar ul > li > ul > hr {
+  border: none;
+  border-top: 1px solid var(--separator);
+  margin: 6px 0;
 }
