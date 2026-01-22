@@ -13,20 +13,20 @@
   --gap: 20px;
   --topbar-h: 56px;
 
-  /* Estética clara (Imagen 2) */
-  --glass-bg: rgba(245, 245, 247, 0.88);
+  /* UI clara tipo Imagen 2 */
+  --glass-bg: rgba(255, 255, 255, 0.92);
   --glass-border: 1px solid rgba(0, 0, 0, 0.12);
-  --glass-blur: blur(18px);
+  --glass-blur: blur(16px);
 
-  --accent-color: #007aff;
-  --hover-color: rgba(0, 122, 255, 0.10);
+  --accent-color: #0a84ff;
+  --hover-color: rgba(10, 132, 255, 0.12);
 
   --text-primary: #1d1d1f;
-  --text-secondary: #86868b;
+  --text-secondary: #6e6e73;
 
   --separator: rgba(0, 0, 0, 0.10);
   --radius: 16px;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
 
   /* iOS safe areas */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -42,15 +42,31 @@ body {
   color: var(--text-primary);
   overflow: hidden;
   margin: 0;
-  background: linear-gradient(to bottom, #f5f5f7, #e8e8ed);
+
+  /* Fondo oscuro “pro” (sin rareza) */
+  background:
+    radial-gradient(circle at 50% 28%, #3a3a3a 0%, #2b2b2b 42%, #1c1c1c 100%);
 }
 
-/* Si tu app usa esto, déjalo */
-#tablet-plugin { position: absolute; top: -1000px; }
+#tablet-plugin {
+  position: absolute;
+  top: -1000px;
+}
 
-/* Canvas siempre atrás */
-#viewport { position: fixed; inset: 0; z-index: 0; }
-#canvas { width: 100%; height: 100%; display: block; }
+#viewport {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+#canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+
+  /* Separación visual del modelo */
+  filter: drop-shadow(0 40px 80px rgba(0,0,0,0.35));
+}
 
 /* =========================
    TOP BAR
@@ -75,7 +91,6 @@ body {
   padding: 0 10px;
 }
 
-/* lista horizontal */
 .gui-topbar > ul {
   display: flex;
   align-items: center;
@@ -86,7 +101,6 @@ body {
   width: 100%;
 }
 
-/* items */
 .gui-topbar > ul > li {
   color: var(--text-primary);
   font-weight: 600;
@@ -107,15 +121,15 @@ body {
   background: var(--hover-color);
 }
 
-/* Dropdown: soporte iPad (hover + focus-within) */
+/* Dropdown (iPad friendly) */
 .gui-topbar > ul > li > ul {
   position: absolute;
   top: 52px;
   left: 0;
 
-  background: rgba(245, 245, 247, 0.96);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(0,0,0,0.18);
@@ -183,7 +197,7 @@ body {
   overscroll-behavior: contain;
 }
 
-/* Scrollbar (sutil) */
+/* Scrollbar */
 .gui-sidebar::-webkit-scrollbar { width: 10px; }
 .gui-sidebar::-webkit-scrollbar-track { background: transparent; }
 .gui-sidebar::-webkit-scrollbar-thumb {
@@ -193,7 +207,6 @@ body {
   background-clip: padding-box;
 }
 
-/* Si tu sistema necesita el resize para medir, no lo mates */
 .gui-resize { display: block; opacity: 0; pointer-events: none; }
 
 /* =========================
@@ -222,7 +235,6 @@ body {
 }
 
 .gui-sidebar > ul:first-child > label { padding-top: 0 !important; }
-
 .gui-sidebar > ul > label:hover { color: var(--accent-color) !important; }
 
 .gui-sidebar > ul > label::before {
@@ -234,7 +246,6 @@ body {
 }
 
 .gui-sidebar > ul[opened="false"] > label::before { content: "▶"; }
-
 .gui-sidebar > ul[opened="true"] { max-height: 3000px; }
 .gui-sidebar > ul[opened="false"] { max-height: 44px; }
 
@@ -253,7 +264,7 @@ body {
   transition: background 0.2s;
 }
 
-.gui-sidebar > ul > li:hover { background: rgba(0, 122, 255, 0.06); }
+.gui-sidebar > ul > li:hover { background: rgba(10, 132, 255, 0.06); }
 
 .gui-sidebar > ul > li > .gui-label-side {
   color: var(--text-primary) !important;
@@ -265,7 +276,6 @@ body {
   grid-column: 1;
 }
 
-/* inputs/selects/buttons al lado derecho */
 .gui-sidebar > ul > li > div,
 .gui-sidebar > ul > li > input,
 .gui-sidebar > ul > li > select,
@@ -293,7 +303,7 @@ body {
 .gui-input-number:focus {
   border-color: var(--accent-color) !important;
   outline: none !important;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15) !important;
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.15) !important;
 }
 
 /* SLIDER */
@@ -312,6 +322,7 @@ body {
   height: 100% !important;
   border-radius: 999px !important;
   position: relative !important;
+  filter: saturate(0.85);
 }
 
 .gui-slider > div::after {
@@ -352,12 +363,18 @@ body {
   top: 2px !important;
   left: 2px !important;
   background: #fff !important;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.22) !important;
-  transition: left 0.25s !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18) !important;
+  transition: transform 0.25s ease !important;
 }
 
-.gui-input-checkbox:checked + label { background: var(--accent-color) !important; }
-.gui-input-checkbox:checked + label::before { left: 22px !important; }
+.gui-input-checkbox:checked + label {
+  background: var(--accent-color) !important;
+  filter: saturate(0.85);
+}
+
+.gui-input-checkbox:checked + label::before {
+  transform: translateX(20px) !important;
+}
 
 /* BUTTON */
 .gui-button {
@@ -371,11 +388,19 @@ body {
   line-height: 40px !important;
   padding: 0 16px !important;
   cursor: pointer !important;
-  box-shadow: 0 6px 16px rgba(0,122,255,0.25) !important;
+  box-shadow: 0 4px 12px rgba(10,132,255,0.25) !important;
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
 }
 
-.gui-button:hover { filter: brightness(0.95); transform: translateY(-1px); }
-.gui-button:active { transform: translateY(0); }
+.gui-button:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 18px rgba(10,132,255,0.28) !important;
+  filter: brightness(0.98);
+}
+
+.gui-button:active {
+  transform: translateY(0px) !important;
+}
 
 /* SELECT */
 .gui-select {
@@ -386,7 +411,14 @@ body {
   padding: 8px 10px !important;
   font-size: 14px !important;
   font-weight: 600 !important;
-  min-width: 140px !important;
+  cursor: pointer !important;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.gui-select:focus {
+  outline: none !important;
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.15) !important;
 }
 
 /* COLOR PICKER */
@@ -395,38 +427,20 @@ body {
   align-items: center !important;
   justify-content: flex-end !important;
 }
+
 .gui-widget-color > input {
-  border: 1px solid rgba(0,0,0,0.12) !important;
-  border-radius: 10px !important;
   width: 40px !important;
   height: 40px !important;
-  cursor: pointer !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+  cursor: pointer !important;
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
+/* Responsive: si pantalla es chica */
 @media (max-width: 900px) {
+  :root { --sidebar-w: 300px; }
   .gui-topbar {
     right: calc(var(--safe-right) + var(--gap));
-  }
-
-  .gui-sidebar {
-    width: calc(100vw - (var(--gap) * 2) - var(--safe-left) - var(--safe-right)) !important;
-    left: calc(var(--safe-left) + var(--gap)) !important;
-    right: auto !important;
-    top: auto !important;
-    bottom: calc(var(--safe-bottom) + var(--gap)) !important;
-    height: 44vh !important;
-  }
-}
-
-/* Fallback si el device reduce transparencia */
-@media (prefers-reduced-transparency: reduce) {
-  .gui-topbar, .gui-sidebar {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: rgba(245,245,247,0.96);
   }
 }
