@@ -13,13 +13,13 @@ class GuiPattern {
 
     // --- AJUSTE UI: Valores iniciales más útiles ---
     this._linCount = 3;
-    this._linOffset = [1.0, 0.0, 0.0]; // Un poco más de separación inicial
+    this._linOffset = [2.0, 0.0, 0.0]; // Separación visible para meshes típicos
     this._linRotate = [0.0, 0.0, 0.0];
     this._linScale = [1.0, 1.0, 1.0];
 
-    // Grid también con valores iniciales visibles
-    this._gridCount = [3, 1, 1]; 
-    this._gridSpace = [1.0, 1.0, 1.0];
+    // Grid con valores iniciales visibles (2x2x1 = 4 copias)
+    this._gridCount = [2, 2, 1];
+    this._gridSpace = [2.0, 2.0, 2.0];
 
     this._isOperation = false;
     this.init();
@@ -56,41 +56,41 @@ class GuiPattern {
   }
 
   buildLinearUI(menu) {
-    menu.addTitle('Count');
-    menu.addSlider('Copies', this._linCount, (v) => { this._linCount = v; }, 1, 50, 1);
+    menu.addTitle('Repetitions');
+    menu.addSlider('Count (Total)', this._linCount, (v) => { this._linCount = v; }, 1, 50, 1);
 
     // MEJORA UI: Rango aumentado a +/- 50.0 para mallas grandes
-    menu.addTitle('Spacing (Offset)');
-    menu.addSlider('X', this._linOffset[0], (v) => { this._linOffset[0] = v; }, -50.0, 50.0, 0.01);
-    menu.addSlider('Y', this._linOffset[1], (v) => { this._linOffset[1] = v; }, -50.0, 50.0, 0.01);
-    menu.addSlider('Z', this._linOffset[2], (v) => { this._linOffset[2] = v; }, -50.0, 50.0, 0.01);
+    menu.addTitle('Offset per Copy');
+    menu.addSlider('Offset X', this._linOffset[0], (v) => { this._linOffset[0] = v; }, -50.0, 50.0, 0.1);
+    menu.addSlider('Offset Y', this._linOffset[1], (v) => { this._linOffset[1] = v; }, -50.0, 50.0, 0.1);
+    menu.addSlider('Offset Z', this._linOffset[2], (v) => { this._linOffset[2] = v; }, -50.0, 50.0, 0.1);
 
-    menu.addTitle('Rotation (Step)');
-    menu.addSlider('Rot X', this._linRotate[0], (v) => { this._linRotate[0] = v; }, -180, 180, 1);
-    menu.addSlider('Rot Y', this._linRotate[1], (v) => { this._linRotate[1] = v; }, -180, 180, 1);
-    menu.addSlider('Rot Z', this._linRotate[2], (v) => { this._linRotate[2] = v; }, -180, 180, 1);
-    
-    menu.addTitle('Scale (Step)');
-    menu.addSlider('Uniform Scale', this._linScale[0], (v) => { 
-        this._linScale = [v, v, v]; 
-    }, 0.1, 5.0, 0.01); // Aumentado max a 5.0
+    menu.addTitle('Rotation per Copy (°)');
+    menu.addSlider('Rotate X', this._linRotate[0], (v) => { this._linRotate[0] = v; }, -180, 180, 1);
+    menu.addSlider('Rotate Y', this._linRotate[1], (v) => { this._linRotate[1] = v; }, -180, 180, 1);
+    menu.addSlider('Rotate Z', this._linRotate[2], (v) => { this._linRotate[2] = v; }, -180, 180, 1);
+
+    menu.addTitle('Scale per Copy');
+    menu.addSlider('Uniform Scale', this._linScale[0], (v) => {
+        this._linScale = [v, v, v];
+    }, 0.1, 3.0, 0.01); // Rango razonable para escalado
   }
 
   buildGridUI(menu) {
-    menu.addTitle('Grid Configuration');
-    
+    menu.addTitle('Grid Layout');
+
     // MEJORA UI: Rangos aumentados para el Grid también
-    // Eje X
-    menu.addSlider('Columns (X)', this._gridCount[0], (v) => { this._gridCount[0] = v; }, 1, 20, 1);
-    menu.addSlider('Space X', this._gridSpace[0], (v) => { this._gridSpace[0] = v; }, -50.0, 50.0, 0.01);
+    // Eje X (Columnas)
+    menu.addSlider('Columns (X axis)', this._gridCount[0], (v) => { this._gridCount[0] = v; }, 1, 20, 1);
+    menu.addSlider('Spacing X', this._gridSpace[0], (v) => { this._gridSpace[0] = v; }, -50.0, 50.0, 0.1);
 
-    // Eje Y
-    menu.addSlider('Rows (Y)', this._gridCount[1], (v) => { this._gridCount[1] = v; }, 1, 20, 1);
-    menu.addSlider('Space Y', this._gridSpace[1], (v) => { this._gridSpace[1] = v; }, -50.0, 50.0, 0.01);
+    // Eje Y (Filas)
+    menu.addSlider('Rows (Y axis)', this._gridCount[1], (v) => { this._gridCount[1] = v; }, 1, 20, 1);
+    menu.addSlider('Spacing Y', this._gridSpace[1], (v) => { this._gridSpace[1] = v; }, -50.0, 50.0, 0.1);
 
-    // Eje Z
-    menu.addSlider('Levels (Z)', this._gridCount[2], (v) => { this._gridCount[2] = v; }, 1, 20, 1);
-    menu.addSlider('Space Z', this._gridSpace[2], (v) => { this._gridSpace[2] = v; }, -50.0, 50.0, 0.01);
+    // Eje Z (Niveles)
+    menu.addSlider('Levels (Z axis)', this._gridCount[2], (v) => { this._gridCount[2] = v; }, 1, 20, 1);
+    menu.addSlider('Spacing Z', this._gridSpace[2], (v) => { this._gridSpace[2] = v; }, -50.0, 50.0, 0.1);
   }
 
   onModeChange(val) {
@@ -112,7 +112,7 @@ class GuiPattern {
     }
 
     this._isOperation = true;
-    
+
     var configs = [];
 
     if (this._mode === 'LINEAR') {
@@ -123,19 +123,26 @@ class GuiPattern {
         scale: this._linScale
       });
     } else {
-      if (this._gridCount[0] > 1) 
+      if (this._gridCount[0] > 1)
         configs.push({ count: this._gridCount[0], offset: [this._gridSpace[0], 0, 0], rotate: [0,0,0], scale: [1,1,1] });
-      if (this._gridCount[1] > 1) 
+      if (this._gridCount[1] > 1)
         configs.push({ count: this._gridCount[1], offset: [0, this._gridSpace[1], 0], rotate: [0,0,0], scale: [1,1,1] });
-      if (this._gridCount[2] > 1) 
+      if (this._gridCount[2] > 1)
         configs.push({ count: this._gridCount[2], offset: [0, 0, this._gridSpace[2]], rotate: [0,0,0], scale: [1,1,1] });
+    }
+
+    // Validar que hay configuraciones válidas
+    if (configs.length === 0) {
+      window.alert('Pattern configuration is empty. Please adjust count values.');
+      this._isOperation = false;
+      return;
     }
 
     try {
       this._main.createPattern(configs, this._origin === 'WORLD');
     } catch (e) {
       console.error(e);
-      window.alert('Error creating pattern.');
+      window.alert('Error creating pattern: ' + e.message);
     } finally {
       this._isOperation = false;
     }
