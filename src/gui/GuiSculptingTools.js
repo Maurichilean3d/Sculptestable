@@ -386,4 +386,17 @@ GuiTools[Enums.Tools.ELEMENTSELECT] = {
   }
 };
 
+// Configuración GUI para Metaballs
+GuiTools[Enums.Tools.METABALLS] = {
+  _ctrls: [],
+  init: function (tool, fold, main) {
+    this._ctrls.push(addCtrlRadius(tool, fold, this, main));
+    
+    // Slider para resolución
+    this._ctrls.push(fold.addSlider('Resolution', tool._resolution, function (val) {
+      tool._resolution = val;
+    }, 10, 80, 1));
+  }
+};
+
 export default GuiSculptingTools;
