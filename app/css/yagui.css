@@ -17,6 +17,7 @@ body {
   --sidebar-w: 320px;
   --gap: 14px;
   --topbar-h: 56px;
+  --dock-w: 60px;
 
   /* UI clara tipo Imagen 2 */
   --glass-bg: rgba(255, 255, 255, 0.92);
@@ -207,7 +208,7 @@ body {
 .gui-sidebar {
   position: fixed !important;
   top: calc(var(--safe-top) + var(--topbar-h) + 12px) !important;
-  right: calc(var(--safe-right) + var(--gap)) !important;
+  right: calc(var(--safe-right) + var(--gap) + var(--dock-w)) !important;
   bottom: calc(var(--safe-bottom) + var(--gap)) !important;
   width: var(--sidebar-w) !important;
 
@@ -478,7 +479,7 @@ body {
 .gui-tool-dock {
   position: fixed;
   top: calc(var(--safe-top) + var(--topbar-h) + 28px);
-  right: calc(var(--safe-right) + var(--gap) + var(--sidebar-w) + 12px);
+  right: calc(var(--safe-right) + var(--gap));
   display: flex;
   flex-direction: column;
   gap: 10px;

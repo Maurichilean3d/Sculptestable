@@ -209,6 +209,8 @@ class Gui {
 
     document.body.appendChild(this._toolDock);
     document.addEventListener('fullscreenchange', this.onFullscreenChange.bind(this));
+
+    this.toggleSidebarMenu('rendering');
   }
 
   _addToolButton(id, label, onClick) {
