@@ -259,7 +259,7 @@ class Scene {
     var scale = 2.5;
     mat4.scale(gridm, gridm, [scale, scale, scale]);
     this._grid.setShaderType(Enums.Shader.FLAT);
-    grid.setFlatColor([0.04, 0.04, 0.04]);
+    grid.setFlatColor([0.78, 0.8, 0.84]);
   }
 
   setOrUnsetMesh(mesh, multiSelect) {
