@@ -118,40 +118,40 @@ class GuiPattern {
     try {
       if (this._mode === 'LINEAR') {
         // Linear Mode: Usamos directamente la función de Scene.js
-        // Restamos 1 porque la UI dice "Total" y la función pide "Copias adicionales"
         var copies = Math.max(0, this._linCount - 1);
         
         if (copies > 0) {
+          // Parametro final 'true' para seleccionar los objetos creados (opcional, pero útil)
           this._main.duplicateSelectionGeneric(
             copies, 
             this._linOffset, 
             this._linRotate, 
-            this._linScale
+            this._linScale,
+            true // updateSelection
           );
         }
 
       } else {
         // Grid Mode: Simulamos el grid llamando secuencialmente para cada eje.
-        // Nota: Scene.js actual no selecciona automáticamente las copias generadas,
-        // por lo que esto generará líneas en cruz desde el origen, no un bloque sólido,
-        // a menos que selecciones manualmente las copias intermedias.
+        // Ahora usamos el parámetro 'true' para acumular la selección, permitiendo
+        // que el siguiente eje duplique todo el conjunto anterior.
         
         // Eje X
         var countX = Math.max(0, this._gridCount[0] - 1);
         if (countX > 0) {
-           this._main.duplicateSelectionGeneric(countX, [this._gridSpace[0], 0, 0], [0,0,0], [1,1,1]);
+           this._main.duplicateSelectionGeneric(countX, [this._gridSpace[0], 0, 0], [0,0,0], [1,1,1], true);
         }
 
         // Eje Y
         var countY = Math.max(0, this._gridCount[1] - 1);
         if (countY > 0) {
-           this._main.duplicateSelectionGeneric(countY, [0, this._gridSpace[1], 0], [0,0,0], [1,1,1]);
+           this._main.duplicateSelectionGeneric(countY, [0, this._gridSpace[1], 0], [0,0,0], [1,1,1], true);
         }
 
         // Eje Z
         var countZ = Math.max(0, this._gridCount[2] - 1);
         if (countZ > 0) {
-           this._main.duplicateSelectionGeneric(countZ, [0, 0, this._gridSpace[2]], [0,0,0], [1,1,1]);
+           this._main.duplicateSelectionGeneric(countZ, [0, 0, this._gridSpace[2]], [0,0,0], [1,1,1], true);
         }
       }
 
