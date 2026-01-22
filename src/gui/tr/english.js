@@ -55,6 +55,8 @@ var TR = {
   sceneDuplicate: 'Copy selection',
   sceneDelete: 'Delete selection',
   sceneSelectAll: 'Select all',
+  sceneSelectNext: 'Select next',
+  sceneSelectPrevious: 'Select previous',
   sceneSelectMore: 'Select more',
   sceneSelectLess: 'Select less',
   sceneCopyPattern: 'Copy pattern',
