@@ -747,14 +747,15 @@ class Scene {
     mat4.copy(copy.getEditMatrix(), mesh.getEditMatrix());
     vec3.copy(copy.getCenter(), mesh.getCenter());
 
-    copy.copyRenderConfig(mesh);
+    if (copy.copyRenderConfig) copy.copyRenderConfig(mesh);
     copy.computeOctree(); 
     copy.updateCenter();
     
     copy.initRender();
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
-        copy.updateDuplicateColorsAndMaterials();
+        // FIX: Chequear si la función existe antes de llamarla
+        if (copy.updateDuplicateColorsAndMaterials) copy.updateDuplicateColorsAndMaterials();
     }
     return copy;
   }
