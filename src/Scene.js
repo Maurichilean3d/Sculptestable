@@ -1,7 +1,3 @@
-{
-type: uploaded file
-fileName: maurichilean3d/sculptestable/Sculptestable-99bf6b118b0213d8ad4a0f5211538a6566a28d59/src/Scene.js
-fullContent:
 import { vec3, mat4, quat } from 'gl-matrix';
 import getOptionsURL from 'misc/getOptionsURL';
 import Enums from 'misc/Enums';
@@ -791,5 +787,3 @@ class Scene {
 }
 
 export default Scene;
-
-}
