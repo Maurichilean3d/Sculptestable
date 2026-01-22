@@ -680,6 +680,8 @@ class Scene {
 
         var stepMatrix = mat4.create();
         mat4.identity(stepMatrix);
+        // Orden estándar de transformaciones: Translate -> Rotate -> Scale
+        // Este orden hace que: 1) las copias se desplacen, 2) roten en su lugar, 3) escalen
         mat4.translate(stepMatrix, stepMatrix, config.offset);
         if (config.rotate[0]) mat4.rotateX(stepMatrix, stepMatrix, config.rotate[0] * Math.PI / 180);
         if (config.rotate[1]) mat4.rotateY(stepMatrix, stepMatrix, config.rotate[1] * Math.PI / 180);
@@ -729,10 +731,12 @@ class Scene {
     var srcData = mesh.getMeshData();
     var dstData = copy.getMeshData();
 
+    // Copiar contadores básicos
     dstData._nbVertices = srcData._nbVertices;
     dstData._nbFaces = srcData._nbFaces;
     dstData._nbTexCoords = srcData._nbTexCoords;
 
+    // Copiar arrays de geometría (deep copy)
     if (srcData._verticesXYZ) dstData._verticesXYZ = new Float32Array(srcData._verticesXYZ);
     if (srcData._colorsRGB) dstData._colorsRGB = new Float32Array(srcData._colorsRGB);
     if (srcData._materialsPBR) dstData._materialsPBR = new Float32Array(srcData._materialsPBR);
@@ -742,21 +746,28 @@ class Scene {
     if (srcData._UVfacesABCD) dstData._UVfacesABCD = srcData._UVfacesABCD instanceof Uint32Array ? new Uint32Array(srcData._UVfacesABCD) : new Uint16Array(srcData._UVfacesABCD);
     if (srcData._duplicateStartCount) dstData._duplicateStartCount = srcData._duplicateStartCount.slice();
 
-    // FIX: Copia profunda de matrices para independencia total
+    // Copiar matrices de transformación
     mat4.copy(copy.getMatrix(), mesh.getMatrix());
     mat4.copy(copy.getEditMatrix(), mesh.getEditMatrix());
     vec3.copy(copy.getCenter(), mesh.getCenter());
 
+    // Copiar configuración de renderizado
     if (copy.copyRenderConfig) copy.copyRenderConfig(mesh);
-    copy.computeOctree(); 
+
+    // Inicializar topología ANTES de computar octree (requiere geometría completa)
+    copy.init(); // Incluye initTopology() para permitir sculpting en copias
+
+    // Computar estructuras espaciales
+    copy.computeOctree();
     copy.updateCenter();
-    
+
+    // Inicializar renderizado y buffers
     copy.initRender();
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
-        // FIX: Chequear si la función existe antes de llamarla
         if (copy.updateDuplicateColorsAndMaterials) copy.updateDuplicateColorsAndMaterials();
     }
+
     return copy;
   }
 
