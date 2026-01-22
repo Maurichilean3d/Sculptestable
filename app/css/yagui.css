@@ -42,7 +42,7 @@ body {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.35;
   color: var(--text-primary);
   overflow: hidden;
@@ -207,7 +207,7 @@ body {
   bottom: calc(var(--safe-bottom) + var(--gap)) !important;
   width: var(--sidebar-w) !important;
 
-  background: rgba(26, 30, 37, 0.92);
+  background: rgba(26, 30, 37, 0.86);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -219,7 +219,7 @@ body {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;
-  opacity: 0.92;
+  opacity: 0.9;
   transition: opacity 0.2s ease;
 }
 
@@ -237,7 +237,7 @@ body {
   background-clip: padding-box;
 }
 
-.gui-resize { display: block; opacity: 0; pointer-events: none; }
+.gui-resize { display: none; opacity: 0; pointer-events: none; }
 
 /* =========================
    ACORDEONES
@@ -285,10 +285,10 @@ body {
 .gui-sidebar > ul > li {
   margin: 0 0 10px 0 !important;
   padding: 10px 12px !important;
-  display: grid !important;
-  grid-template-columns: 1fr auto !important;
+  display: flex !important;
+  flex-wrap: wrap;
   align-items: center !important;
-  gap: 14px !important;
+  gap: 8px !important;
   min-height: 42px !important;
   border-radius: 12px;
   transition: background 0.2s;
@@ -299,19 +299,20 @@ body {
 
 .gui-sidebar > ul > li > .gui-label-side {
   color: #e9edf3 !important;
-  font-size: 14px !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
+  line-height: 1.2;
   margin: 0 !important;
   padding: 0 !important;
-  width: auto !important;
-  grid-column: 1;
+  flex: 0 0 40%;
+  min-width: 120px;
 }
 
 .gui-sidebar > ul > li > div,
 .gui-sidebar > ul > li > input,
 .gui-sidebar > ul > li > select,
 .gui-sidebar > ul > li > button {
-  grid-column: 2;
+  flex: 1 1 auto;
   margin: 0 !important;
 }
 
@@ -323,10 +324,11 @@ body {
   border-radius: 10px !important;
   padding: 8px 10px !important;
   text-align: right !important;
-  width: 76px !important;
-  min-width: 76px !important;
+  width: 15% !important;
+  min-width: 52px !important;
+  max-width: 70px !important;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: 600 !important;
   transition: border 0.2s, box-shadow 0.2s;
 }
@@ -342,8 +344,8 @@ body {
   background: rgba(255, 255, 255, 0.2) !important;
   height: 6px !important;
   border-radius: 999px !important;
-  width: 150px !important;
-  min-width: 150px !important;
+  width: 40% !important;
+  min-width: 120px !important;
   cursor: pointer !important;
   position: relative !important;
 }
@@ -376,9 +378,9 @@ body {
 .gui-input-checkbox + label {
   background: rgba(0, 0, 0, 0.16) !important;
   border-radius: 999px !important;
-  width: 52px !important;
-  height: 32px !important;
-  min-width: 52px !important;
+  width: 24px !important;
+  height: 18px !important;
+  min-width: 24px !important;
   position: relative !important;
   cursor: pointer !important;
   display: block !important;
@@ -388,8 +390,8 @@ body {
 .gui-input-checkbox + label::before {
   content: "" !important;
   position: absolute !important;
-  width: 28px !important;
-  height: 28px !important;
+  width: 14px !important;
+  height: 14px !important;
   border-radius: 50% !important;
   top: 2px !important;
   left: 2px !important;
@@ -404,7 +406,7 @@ body {
 }
 
 .gui-input-checkbox:checked + label::before {
-  transform: translateX(20px) !important;
+  transform: translateX(6px) !important;
 }
 
 /* BUTTON */
@@ -414,10 +416,11 @@ body {
   border: none !important;
   border-radius: 12px !important;
   font-weight: 700 !important;
-  font-size: 14px !important;
-  height: 40px !important;
-  line-height: 40px !important;
-  padding: 0 16px !important;
+  font-size: 12px !important;
+  height: 32px !important;
+  line-height: 30px !important;
+  padding: 0 12px !important;
+  width: 100% !important;
   cursor: pointer !important;
   box-shadow: 0 4px 12px rgba(10,132,255,0.25) !important;
   transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
@@ -440,10 +443,12 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   border-radius: 10px !important;
   padding: 8px 10px !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
   font-weight: 600 !important;
   cursor: pointer !important;
   transition: border 0.2s, box-shadow 0.2s;
+  width: 55% !important;
+  min-width: 120px !important;
 }
 
 .gui-select:focus {
@@ -471,7 +476,7 @@ body {
 /* Tool dock */
 .gui-tool-dock {
   position: fixed;
-  top: calc(var(--safe-top) + var(--topbar-h) + 18px);
+  top: calc(var(--safe-top) + var(--topbar-h) + 28px);
   right: calc(var(--safe-right) + var(--gap));
   display: flex;
   flex-direction: column;

@@ -45,6 +45,7 @@ class Gui {
     this._sidebarMenus = {};
     this._activeSidebarMenu = null;
     this._sidebarVisible = false;
+    this._isFullscreen = false;
 
     // upload
     this._notifications = {};
@@ -204,8 +205,10 @@ class Gui {
     this._addToolButton('sculpting', 'S', () => this.toggleSidebarMenu('sculpting'));
     this._addToolButton('pattern', 'P', () => this.toggleSidebarMenu('pattern'));
     this._addToolButton('rotate', '⟳', () => this.toggleAutoRotate());
+    this._addToolButton('fullscreen', '⛶', () => this.toggleFullscreen());
 
     document.body.appendChild(this._toolDock);
+    document.addEventListener('fullscreenchange', this.onFullscreenChange.bind(this));
   }
 
   _addToolButton(id, label, onClick) {
@@ -254,10 +257,28 @@ class Gui {
     if (this._ctrlSculpting && this._ctrlSculpting._ctrlRotomold) {
       this._ctrlSculpting._ctrlRotomold.setValue(enabled, true);
     }
+    if (enabled && this._activeSidebarMenu !== 'sculpting') {
+      this.toggleSidebarMenu('sculpting');
+    }
     if (this._toolDockButtons.rotate) {
       this._toolDockButtons.rotate.classList.toggle('is-on', enabled);
     }
     this._main.render();
+  }
+
+  toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      return;
+    }
+    document.exitFullscreen().catch(() => {});
+  }
+
+  onFullscreenChange() {
+    this._isFullscreen = !!document.fullscreenElement;
+    if (this._toolDockButtons.fullscreen) {
+      this._toolDockButtons.fullscreen.classList.toggle('is-on', this._isFullscreen);
+    }
   }
 
   updateMesh() {
