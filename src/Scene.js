@@ -1,3 +1,7 @@
+{
+type: uploaded file
+fileName: maurichilean3d/sculptestable/Sculptestable-99bf6b118b0213d8ad4a0f5211538a6566a28d59/src/Scene.js
+fullContent:
 import { vec3, mat4, quat } from 'gl-matrix';
 import getOptionsURL from 'misc/getOptionsURL';
 import Enums from 'misc/Enums';
@@ -747,14 +751,15 @@ class Scene {
     mat4.copy(copy.getEditMatrix(), mesh.getEditMatrix());
     vec3.copy(copy.getCenter(), mesh.getCenter());
 
-    copy.copyRenderConfig(mesh);
+    if (copy.copyRenderConfig) copy.copyRenderConfig(mesh);
     copy.computeOctree(); 
     copy.updateCenter();
     
     copy.initRender();
     if (copy.getRenderData()) {
         copy.updateGeometryBuffers();
-        copy.updateDuplicateColorsAndMaterials();
+        // FIX: Chequear si la función existe antes de llamarla
+        if (copy.updateDuplicateColorsAndMaterials) copy.updateDuplicateColorsAndMaterials();
     }
     return copy;
   }
@@ -786,3 +791,5 @@ class Scene {
 }
 
 export default Scene;
+
+}
