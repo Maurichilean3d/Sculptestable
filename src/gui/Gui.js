@@ -40,6 +40,12 @@ class Gui {
     this._ctrlNotification = null;
 
     this._ctrls = []; // list of controllers
+    this._toolDock = null;
+    this._toolDockButtons = {};
+    this._sidebarMenus = {};
+    this._activeSidebarMenu = null;
+    this._sidebarVisible = false;
+    this._isFullscreen = false;
 
     // upload
     this._notifications = {};
@@ -85,6 +91,7 @@ class Gui {
     extra.addSlider('', this._main._pixelRatio, this.onPixelRatio.bind(this), 0.5, 2.0, 0.02);
 
     this.addAboutButton();
+    this.initToolDock();
 
     this.updateMesh();
     this.setVisibility(true);
@@ -173,6 +180,108 @@ class Gui {
     ctrlAbout.domContainer.addEventListener('mousedown', function () {
       window.open('http://stephaneginier.com', '_blank');
     });
+  }
+
+  initToolDock() {
+    if (this._toolDock) this._toolDock.remove();
+
+    this._toolDock = document.createElement('div');
+    this._toolDock.className = 'gui-tool-dock';
+
+    this._sidebarMenus = {
+      rendering: this._ctrlRendering._menu,
+      topology: this._ctrlTopology._menu,
+      sculpting: this._ctrlSculpting._menu,
+      pattern: this._ctrlPattern._menu
+    };
+
+    Object.values(this._sidebarMenus).forEach((menu) => menu.setVisibility(false));
+    this._sidebar.setVisibility(false);
+    this._sidebarVisible = false;
+
+    this._toolDockButtons = {};
+    this._addToolButton('rendering', 'R', () => this.toggleSidebarMenu('rendering'));
+    this._addToolButton('topology', 'T', () => this.toggleSidebarMenu('topology'));
+    this._addToolButton('sculpting', 'S', () => this.toggleSidebarMenu('sculpting'));
+    this._addToolButton('pattern', 'P', () => this.toggleSidebarMenu('pattern'));
+    this._addToolButton('rotate', '⟳', () => this.toggleAutoRotate());
+    this._addToolButton('fullscreen', '⛶', () => this.toggleFullscreen());
+
+    document.body.appendChild(this._toolDock);
+    document.addEventListener('fullscreenchange', this.onFullscreenChange.bind(this));
+  }
+
+  _addToolButton(id, label, onClick) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'gui-tool-btn';
+    button.textContent = label;
+    button.addEventListener('click', onClick);
+    this._toolDock.appendChild(button);
+    this._toolDockButtons[id] = button;
+  }
+
+  toggleSidebarMenu(id) {
+    var menu = this._sidebarMenus[id];
+    if (!menu) return;
+
+    var isActive = this._activeSidebarMenu === id && this._sidebarVisible;
+    if (isActive) {
+      this._sidebar.setVisibility(false);
+      this._sidebarVisible = false;
+      this._activeSidebarMenu = null;
+      this._setActiveTool(null);
+      return;
+    }
+
+    this._sidebar.setVisibility(true);
+    this._sidebarVisible = true;
+    this._activeSidebarMenu = id;
+
+    Object.keys(this._sidebarMenus).forEach((key) => {
+      this._sidebarMenus[key].setVisibility(key === id);
+    });
+
+    this._setActiveTool(id);
+  }
+
+  _setActiveTool(id) {
+    Object.keys(this._toolDockButtons).forEach((key) => {
+      this._toolDockButtons[key].classList.toggle('is-active', key === id);
+    });
+  }
+
+  toggleAutoRotate() {
+    var enabled = !this._main._autoRotateEnabled;
+    this._main.setAutoRotateEnabled(enabled);
+    if (this._ctrlSculpting && this._ctrlSculpting._ctrlRotomold) {
+      this._ctrlSculpting._ctrlRotomold.setValue(enabled, true);
+    }
+    if (enabled && this._activeSidebarMenu !== 'sculpting') {
+      this.toggleSidebarMenu('sculpting');
+    }
+    if (enabled && this._ctrlSculpting && this._ctrlSculpting.focusRotomold) {
+      this._ctrlSculpting.focusRotomold();
+    }
+    if (this._toolDockButtons.rotate) {
+      this._toolDockButtons.rotate.classList.toggle('is-on', enabled);
+    }
+    this._main.render();
+  }
+
+  toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      return;
+    }
+    document.exitFullscreen().catch(() => {});
+  }
+
+  onFullscreenChange() {
+    this._isFullscreen = !!document.fullscreenElement;
+    if (this._toolDockButtons.fullscreen) {
+      this._toolDockButtons.fullscreen.classList.toggle('is-on', this._isFullscreen);
+    }
   }
 
   updateMesh() {
