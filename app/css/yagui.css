@@ -95,7 +95,7 @@ body {
 
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 14px 0 56px;
 }
 
 .gui-topbar > ul {
@@ -117,7 +117,7 @@ body {
   display: flex;
   align-items: center;
   border-radius: 10px;
-  cursor: pointer;
+  cursor: default;
   position: relative;
   margin: 0 4px;
   transition: background 0.2s, color 0.2s;
@@ -126,6 +126,10 @@ body {
 .gui-topbar > ul > li:hover {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.12);
+}
+
+.gui-topbar > ul > li > ul {
+  display: none !important;
 }
 
 .gui-topbar > span {
@@ -207,7 +211,7 @@ body {
   bottom: calc(var(--safe-bottom) + var(--gap)) !important;
   width: var(--sidebar-w) !important;
 
-  background: rgba(26, 30, 37, 0.86);
+  background: rgba(26, 30, 37, 0.8);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -258,7 +262,7 @@ body {
   letter-spacing: 0.8px;
   display: block !important;
   padding: 14px 0 10px 0 !important;
-  cursor: pointer;
+  cursor: default;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin: 0 0 10px 0 !important;
   transition: color 0.2s;
@@ -268,16 +272,13 @@ body {
 .gui-sidebar > ul > label:hover { color: var(--accent-color) !important; }
 
 .gui-sidebar > ul > label::before {
-  content: "▼";
-  display: inline-block;
-  margin-right: 8px;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
+  content: "";
+  display: none;
 }
 
-.gui-sidebar > ul[opened="false"] > label::before { content: "▶"; }
+.gui-sidebar > ul[opened="false"] > label::before { content: ""; }
 .gui-sidebar > ul[opened="true"] { max-height: 3000px; }
-.gui-sidebar > ul[opened="false"] { max-height: 44px; }
+.gui-sidebar > ul[opened="false"] { max-height: 3000px; }
 
 /* =========================
    ITEMS / CONTROLES
@@ -477,7 +478,7 @@ body {
 .gui-tool-dock {
   position: fixed;
   top: calc(var(--safe-top) + var(--topbar-h) + 28px);
-  right: calc(var(--safe-right) + var(--gap));
+  right: calc(var(--safe-right) + var(--gap) + var(--sidebar-w) + 12px);
   display: flex;
   flex-direction: column;
   gap: 10px;

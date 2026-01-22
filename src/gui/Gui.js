@@ -260,6 +260,9 @@ class Gui {
     if (enabled && this._activeSidebarMenu !== 'sculpting') {
       this.toggleSidebarMenu('sculpting');
     }
+    if (enabled && this._ctrlSculpting && this._ctrlSculpting.focusRotomold) {
+      this._ctrlSculpting.focusRotomold();
+    }
     if (this._toolDockButtons.rotate) {
       this._toolDockButtons.rotate.classList.toggle('is-on', enabled);
     }
