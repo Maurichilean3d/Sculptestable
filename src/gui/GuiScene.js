@@ -23,11 +23,8 @@ class GuiScene {
     // selection stuffs
     menu.addTitle(TR('sceneSelection'));
     menu.addButton(TR('sceneSelectAll'), this, 'selectAll');
-    
-    // --- NUEVOS BOTONES DE NAVEGACIÓN ---
-    menu.addButton('Select Next', this, 'selectNext');         // Seleccionar Siguiente
-    menu.addButton('Select Previous', this, 'selectPrevious'); // Seleccionar Anterior
-    // ------------------------------------
+    menu.addButton(TR('sceneSelectNext'), this, 'selectNext');
+    menu.addButton(TR('sceneSelectPrevious'), this, 'selectPrevious');
 
     menu.addButton(TR('sceneSelectMore'), this, 'selectMore');
     menu.addButton(TR('sceneSelectLess'), this, 'selectLess');
