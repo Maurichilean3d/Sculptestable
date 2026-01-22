@@ -78,6 +78,13 @@ class GuiSculpting {
     this.onChangeTool(this._sculptManager.getToolIndex());
   }
 
+  focusRotomold() {
+    if (this._menu && this._menu.open) this._menu.open();
+    if (this._ctrlRotomold && this._ctrlRotomold.domContainer) {
+      this._ctrlRotomold.domContainer.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }
+
   onSymmetryChange(value) {
     this._sculptManager._symmetry = value;
     this._main.render();
