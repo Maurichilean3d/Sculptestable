@@ -13,6 +13,7 @@ import Masking from 'editing/tools/Masking';
 import LocalScale from 'editing/tools/LocalScale';
 import Transform from 'editing/tools/Transform';
 import ElementSelection from 'editing/tools/ElementSelection';
+import Metaballs from 'editing/tools/Metaballs';
 
 var Tools = [];
 
@@ -30,6 +31,7 @@ Tools[Enums.Tools.MASKING] = Masking;
 Tools[Enums.Tools.LOCALSCALE] = LocalScale;
 Tools[Enums.Tools.TRANSFORM] = Transform;
 Tools[Enums.Tools.ELEMENTSELECT] = ElementSelection;
+Tools[Enums.Tools.METABALLS] = Metaballs;
 
 Tools[Enums.Tools.BRUSH].uiName = 'sculptBrush';
 Tools[Enums.Tools.INFLATE].uiName = 'sculptInflate';
@@ -45,5 +47,6 @@ Tools[Enums.Tools.MASKING].uiName = 'sculptMasking';
 Tools[Enums.Tools.LOCALSCALE].uiName = 'sculptLocalScale';
 Tools[Enums.Tools.TRANSFORM].uiName = 'sculptTransform';
 Tools[Enums.Tools.ELEMENTSELECT].uiName = 'sculptElementSelect';
+Tools[Enums.Tools.METABALLS].uiName = 'sculptMetaballs';
 
 export default Tools;
