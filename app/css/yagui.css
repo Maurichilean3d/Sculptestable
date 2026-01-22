@@ -51,7 +51,7 @@ body {
 
   /* Fondo moderno y limpio */
   background:
-    radial-gradient(circle at 50% 18%, #f6f7fb 0%, #eef1f6 45%, #e5e9f0 100%);
+    radial-gradient(circle at 50% 18%, #fff2e2 0%, #f7e6d6 45%, #f0ddd0 100%);
 }
 
 #tablet-plugin {
