@@ -9,18 +9,15 @@ class GuiPattern {
 
     // Estado inicial
     this._mode = 'LINEAR'; // Modos: LINEAR o GRID
-    // Nota: Scene.js usa duplicateSelectionGeneric que opera matricialmente (World/Parent), 
-    // la opción Local/World no está soportada directamente por el método actual de Scene.js
-    // pero la mantenemos en la UI por si se implementa en el futuro.
     this._origin = 'LOCAL'; 
 
-    // --- AJUSTE UI: Valores iniciales más útiles ---
+    // Valores iniciales
     this._linCount = 3;
-    this._linOffset = [2.0, 0.0, 0.0]; // Separación visible para meshes típicos
+    this._linOffset = [2.0, 0.0, 0.0]; 
     this._linRotate = [0.0, 0.0, 0.0];
     this._linScale = [1.0, 1.0, 1.0];
 
-    // Grid con valores iniciales visibles
+    // Grid con valores iniciales
     this._gridCount = [2, 2, 1];
     this._gridSpace = [2.0, 2.0, 2.0];
 
@@ -41,7 +38,6 @@ class GuiPattern {
       'Grid (Per Axis)': 'GRID'
     });
 
-    // Nota: La implementación actual de Scene.js aplica transformaciones globales por defecto.
     menu.addCombobox('Reference', this._origin, this.onOriginChange.bind(this), {
       'Default': 'LOCAL' 
     });
@@ -60,7 +56,6 @@ class GuiPattern {
 
   buildLinearUI(menu) {
     menu.addTitle('Repetitions');
-    // El usuario ve el total (ej. 5 items), el código necesita cuántas copias (ej. 4)
     menu.addSlider('Count (Total)', this._linCount, (v) => { this._linCount = v; }, 2, 50, 1);
 
     menu.addTitle('Offset per Copy');
@@ -82,15 +77,15 @@ class GuiPattern {
   buildGridUI(menu) {
     menu.addTitle('Grid Layout (Axis Independent)');
 
-    // Eje X (Columnas)
+    // Eje X
     menu.addSlider('Columns (X)', this._gridCount[0], (v) => { this._gridCount[0] = v; }, 1, 20, 1);
     menu.addSlider('Spacing X', this._gridSpace[0], (v) => { this._gridSpace[0] = v; }, -50.0, 50.0, 0.1);
 
-    // Eje Y (Filas)
+    // Eje Y
     menu.addSlider('Rows (Y)', this._gridCount[1], (v) => { this._gridCount[1] = v; }, 1, 20, 1);
     menu.addSlider('Spacing Y', this._gridSpace[1], (v) => { this._gridSpace[1] = v; }, -50.0, 50.0, 0.1);
 
-    // Eje Z (Niveles)
+    // Eje Z
     menu.addSlider('Levels (Z)', this._gridCount[2], (v) => { this._gridCount[2] = v; }, 1, 20, 1);
     menu.addSlider('Spacing Z', this._gridSpace[2], (v) => { this._gridSpace[2] = v; }, -50.0, 50.0, 0.1);
   }
@@ -117,45 +112,41 @@ class GuiPattern {
 
     try {
       if (this._mode === 'LINEAR') {
-        // Linear Mode: Usamos directamente la función de Scene.js
+        // Linear Mode
         var copies = Math.max(0, this._linCount - 1);
-        
         if (copies > 0) {
-          // Parametro final 'true' para seleccionar los objetos creados (opcional, pero útil)
+          // 'true' para actualizar selección y permitir patrones anidados si fuera necesario
           this._main.duplicateSelectionGeneric(
             copies, 
             this._linOffset, 
             this._linRotate, 
             this._linScale,
-            true // updateSelection
+            true 
           );
         }
 
       } else {
-        // Grid Mode: Simulamos el grid llamando secuencialmente para cada eje.
-        // Ahora usamos el parámetro 'true' para acumular la selección, permitiendo
-        // que el siguiente eje duplique todo el conjunto anterior.
+        // Grid Mode: Multiplica ejes X -> Y -> Z
         
-        // Eje X
+        // Eje X (Añade a selección actual)
         var countX = Math.max(0, this._gridCount[0] - 1);
         if (countX > 0) {
            this._main.duplicateSelectionGeneric(countX, [this._gridSpace[0], 0, 0], [0,0,0], [1,1,1], true);
         }
 
-        // Eje Y
+        // Eje Y (Duplica todo lo anterior en Y)
         var countY = Math.max(0, this._gridCount[1] - 1);
         if (countY > 0) {
            this._main.duplicateSelectionGeneric(countY, [0, this._gridSpace[1], 0], [0,0,0], [1,1,1], true);
         }
 
-        // Eje Z
+        // Eje Z (Duplica todo lo anterior en Z)
         var countZ = Math.max(0, this._gridCount[2] - 1);
         if (countZ > 0) {
            this._main.duplicateSelectionGeneric(countZ, [0, 0, this._gridSpace[2]], [0,0,0], [1,1,1], true);
         }
       }
 
-      // Actualizar la vista después de la operación
       this._main.render();
 
     } catch (e) {
