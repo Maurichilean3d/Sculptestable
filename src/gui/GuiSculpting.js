@@ -43,10 +43,12 @@ class GuiSculpting {
 
     menu.addTitle(TR('sculptTool'));
 
-    // sculpt tool
+    // sculpt tool (exclude METABALLS as it has its own button now)
     var optTools = [];
     for (var i = 0, nbTools = Tools.length; i < nbTools; ++i) {
-      if (Tools[i]) optTools[i] = TR(Tools[i].uiName);
+      if (Tools[i] && i !== Enums.Tools.METABALLS) {
+        optTools[i] = TR(Tools[i].uiName);
+      }
     }
     this._ctrlSculpt = menu.addCombobox(TR('sculptTool'), this._sculptManager.getToolIndex(), this.onChangeTool.bind(this), optTools);
 
