@@ -293,6 +293,10 @@ body {
   color: #e9edf3;
 }
 
+.gui-sidebar > ul > li[hidden] {
+  display: none !important;
+}
+
 .gui-sidebar > ul > li:hover { background: rgba(255, 255, 255, 0.08); }
 
 .gui-sidebar > ul > li > .gui-label-side {
