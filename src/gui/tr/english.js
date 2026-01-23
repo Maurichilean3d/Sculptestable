@@ -127,7 +127,6 @@ var TR = {
   sculptDrag: 'Drag',
   sculptPaint: 'Paint',
   sculptMasking: 'Masking (-Ctrl)',
-  sculptMetaballs: 'Metaballs',
   sculptMove: 'Move',
   sculptLocalScale: 'Local scale',
   sculptTransform: 'Transform (E)',

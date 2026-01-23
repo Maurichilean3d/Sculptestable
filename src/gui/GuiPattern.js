@@ -109,13 +109,6 @@ class GuiPattern {
       return;
     }
 
-    // Validación de la malla seleccionada
-    var mesh = this._main.getMesh();
-    if (!mesh || !mesh.getVertices() || mesh.getVertices().length === 0) {
-      window.alert('The selected mesh is invalid or empty.');
-      return;
-    }
-
     this._isOperation = true;
 
     try {
@@ -123,81 +116,43 @@ class GuiPattern {
         // Linear Mode
         var copies = Math.max(0, this._linCount - 1);
         if (copies > 0) {
-          // Validar parámetros antes de llamar
-          if (!this._linOffset || !this._linRotate || !this._linScale) {
-            throw new Error('Invalid pattern parameters');
-          }
-
-          var result = this._main.duplicateSelectionGeneric(
-            copies,
-            this._linOffset,
-            this._linRotate,
+          // 'true' para actualizar selección y permitir patrones anidados si fuera necesario
+          this._main.duplicateSelectionGeneric(
+            copies, 
+            this._linOffset, 
+            this._linRotate, 
             this._linScale,
-            true
+            true 
           );
-
-          // duplicateSelectionGeneric returns undefined if it fails validation
-          if (result === undefined) {
-            // Validation failed - alert was already shown by duplicateSelectionGeneric
-            this._isOperation = false;
-            return;
-          }
-
-          if (!result || result.length === 0) {
-            throw new Error('Failed to create pattern copies');
-          }
-        } else {
-          window.alert('Count must be at least 2 to create a pattern.');
-          this._isOperation = false;
-          return;
         }
 
       } else {
         // Grid Mode: Multiplica ejes X -> Y -> Z
-
+        
         // Eje X (Añade a selección actual)
         var countX = Math.max(0, this._gridCount[0] - 1);
         if (countX > 0) {
-           var resultX = this._main.duplicateSelectionGeneric(countX, [this._gridSpace[0], 0, 0], [0,0,0], [1,1,1], true);
-           if (resultX === undefined) {
-             this._isOperation = false;
-             return;
-           }
+           this._main.duplicateSelectionGeneric(countX, [this._gridSpace[0], 0, 0], [0,0,0], [1,1,1], true);
         }
 
         // Eje Y (Duplica todo lo anterior en Y)
         var countY = Math.max(0, this._gridCount[1] - 1);
         if (countY > 0) {
-           var resultY = this._main.duplicateSelectionGeneric(countY, [0, this._gridSpace[1], 0], [0,0,0], [1,1,1], true);
-           if (resultY === undefined) {
-             this._isOperation = false;
-             return;
-           }
+           this._main.duplicateSelectionGeneric(countY, [0, this._gridSpace[1], 0], [0,0,0], [1,1,1], true);
         }
 
         // Eje Z (Duplica todo lo anterior en Z)
         var countZ = Math.max(0, this._gridCount[2] - 1);
         if (countZ > 0) {
-           var resultZ = this._main.duplicateSelectionGeneric(countZ, [0, 0, this._gridSpace[2]], [0,0,0], [1,1,1], true);
-           if (resultZ === undefined) {
-             this._isOperation = false;
-             return;
-           }
-        }
-
-        if (countX === 0 && countY === 0 && countZ === 0) {
-          window.alert('At least one axis must have more than 1 copy.');
-          this._isOperation = false;
-          return;
+           this._main.duplicateSelectionGeneric(countZ, [0, 0, this._gridSpace[2]], [0,0,0], [1,1,1], true);
         }
       }
 
       this._main.render();
-      console.log('Pattern created successfully');
 
     } catch (e) {
-      console.error('Pattern error:', e);
-      window.alert('Error creating pattern: ' + (e.message || 'Unknown error'));
+      console.error(e);
+      window.alert('Error creating pattern: ' + e.message);
     } finally {
       this._isOperation = false;
     }
