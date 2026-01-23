@@ -16,17 +16,27 @@ class Metaballs extends SculptBase {
     this._lastSphereIndex = 0;
   }
 
-  start(picking) {
-    // Al iniciar un trazo, limpiamos la lista y empezamos de nuevo
-    this._spheres = [];
-    this._lastSphereIndex = 0;
+  start(ctrl) {
+    var started = super.start(ctrl);
+    if (!started) return false;
+
+    var picking = this._main.getPicking();
     this.stroke(picking);
+    return true;
   }
 
   end() {
     // Al soltar el mouse, podrías hacer limpieza o consolidar si fuera necesario
     // Por ahora, la geometría ya está pegada en la malla, así que solo limpiamos
     this._spheres = [];
+    super.end();
+  }
+
+  startSculpt() {
+    // Al iniciar un trazo, limpiamos la lista y empezamos de nuevo
+    this._spheres = [];
+    this._lastSphereIndex = 0;
+    super.startSculpt();
   }
 
   stroke(picking) {
