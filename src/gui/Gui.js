@@ -6,7 +6,6 @@ import GuiConfig from 'gui/GuiConfig';
 import GuiFiles from 'gui/GuiFiles';
 import GuiMesh from 'gui/GuiMesh';
 import GuiPattern from 'gui/GuiPattern';
-import GuiMetaballs from 'gui/GuiMetaballs';
 import GuiTopology from 'gui/GuiTopology';
 import GuiRendering from 'gui/GuiRendering';
 import GuiScene from 'gui/GuiScene';
@@ -37,7 +36,6 @@ class Gui {
     this._ctrlTopology = null;
     this._ctrlRendering = null;
     this._ctrlPattern = null;
-    this._ctrlMetaballs = null;
 
     this._ctrlNotification = null;
 
@@ -82,7 +80,6 @@ class Gui {
     ctrls[idc++] = this._ctrlTopology = new GuiTopology(this._sidebar, this);
     ctrls[idc++] = this._ctrlSculpting = new GuiSculpting(this._sidebar, this);
     ctrls[idc++] = this._ctrlPattern = new GuiPattern(this._sidebar, this);
-    ctrls[idc++] = this._ctrlMetaballs = new GuiMetaballs(this._sidebar, this);
 
     // gui extra
     var extra = this._topbar.addExtra();
@@ -195,8 +192,7 @@ class Gui {
       rendering: this._ctrlRendering._menu,
       topology: this._ctrlTopology._menu,
       sculpting: this._ctrlSculpting._menu,
-      pattern: this._ctrlPattern._menu,
-      metaballs: this._ctrlMetaballs._menu
+      pattern: this._ctrlPattern._menu
     };
 
     Object.values(this._sidebarMenus).forEach((menu) => menu.setVisibility(false));
@@ -208,7 +204,6 @@ class Gui {
     this._addToolButton('topology', 'T', () => this.toggleSidebarMenu('topology'));
     this._addToolButton('sculpting', 'S', () => this.toggleSidebarMenu('sculpting'));
     this._addToolButton('pattern', 'P', () => this.toggleSidebarMenu('pattern'));
-    this._addToolButton('metaballs', 'M', () => this.toggleSidebarMenu('metaballs'));
     this._addToolButton('rotate', '⟳', () => this.toggleAutoRotate());
     this._addToolButton('fullscreen', '⛶', () => this.toggleFullscreen());
 
@@ -250,11 +245,6 @@ class Gui {
     });
 
     this._setActiveTool(id);
-
-    // Activate metaballs tool when opening metaballs menu
-    if (id === 'metaballs' && this._ctrlMetaballs) {
-      this._ctrlMetaballs.activateMetaballsTool();
-    }
   }
 
   _setActiveTool(id) {
@@ -300,7 +290,6 @@ class Gui {
     this._ctrlRendering.updateMesh();
     this._ctrlTopology.updateMesh();
     this._ctrlSculpting.updateMesh();
-    this._ctrlMetaballs.updateMesh();
     this._ctrlScene.updateMesh();
     this.updateMeshInfo();
   }
