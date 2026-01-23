@@ -21,18 +21,31 @@ GuiSculptingTools.initGuiTools = function (sculpt, menu, main) {
         _ctrls: [],
         init: function () {}
       };
+      uTool = GuiTools[i];
     }
+
+    // CORRECCIÓN: Evitar inicializar dos veces la misma herramienta
+    if (uTool._initialized) {
+        // Opcional: Si quisieras limpiar para reinicializar, harías limpieza aquí.
+        // Por ahora, simplemente evitamos duplicar si ya existe.
+        continue;
+    }
+    
     uTool.init(sculpt.getTool(i), menu, main);
+    uTool._initialized = true; // Marcamos como inicializada
+    
     GuiSculptingTools.hide(i);
   }
 };
 
 GuiSculptingTools.hide = function (toolIndex) {
+  if (!GuiTools[toolIndex] || !GuiTools[toolIndex]._ctrls) return;
   for (var i = 0, ctrls = GuiTools[toolIndex]._ctrls, nbCtrl = ctrls.length; i < nbCtrl; ++i)
     ctrls[i].setVisibility(false);
 };
 
 GuiSculptingTools.show = function (toolIndex) {
+  if (!GuiTools[toolIndex] || !GuiTools[toolIndex]._ctrls) return;
   for (var i = 0, ctrls = GuiTools[toolIndex]._ctrls, nbCtrl = ctrls.length; i < nbCtrl; ++i)
     ctrls[i].setVisibility(true);
   if (GuiTools[toolIndex].onShow)
@@ -87,6 +100,7 @@ var addCtrlAlpha = function (ctrls, fold, tool, ui) {
 GuiTools[Enums.Tools.BRUSH] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0; // Limpieza preventiva array
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlNegative(tool, fold, this));
@@ -100,6 +114,7 @@ GuiTools[Enums.Tools.BRUSH] = {
 GuiTools[Enums.Tools.CREASE] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlNegative(tool, fold, this));
@@ -111,6 +126,7 @@ GuiTools[Enums.Tools.CREASE] = {
 GuiTools[Enums.Tools.DRAG] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     addCtrlAlpha(this._ctrls, fold, tool, this);
   }
@@ -119,6 +135,7 @@ GuiTools[Enums.Tools.DRAG] = {
 GuiTools[Enums.Tools.FLATTEN] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlNegative(tool, fold, this));
@@ -130,6 +147,7 @@ GuiTools[Enums.Tools.FLATTEN] = {
 GuiTools[Enums.Tools.INFLATE] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlNegative(tool, fold, this));
@@ -181,6 +199,7 @@ GuiTools[Enums.Tools.PAINT] = {
     main.renderSelectOverRtt();
   },
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlHardness(tool, fold, this));
@@ -216,6 +235,7 @@ GuiTools[Enums.Tools.PAINT] = {
 GuiTools[Enums.Tools.PINCH] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlNegative(tool, fold, this));
@@ -227,6 +247,7 @@ GuiTools[Enums.Tools.PINCH] = {
 GuiTools[Enums.Tools.TWIST] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlCulling(tool, fold));
     addCtrlAlpha(this._ctrls, fold, tool, this);
@@ -236,6 +257,7 @@ GuiTools[Enums.Tools.TWIST] = {
 GuiTools[Enums.Tools.LOCALSCALE] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlCulling(tool, fold));
     addCtrlAlpha(this._ctrls, fold, tool, this);
@@ -245,6 +267,7 @@ GuiTools[Enums.Tools.LOCALSCALE] = {
 GuiTools[Enums.Tools.MOVE] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(fold.addCheckbox(TR('sculptTopologicalCheck'), tool, '_topoCheck'));
@@ -256,6 +279,7 @@ GuiTools[Enums.Tools.MOVE] = {
 GuiTools[Enums.Tools.SMOOTH] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(fold.addCheckbox(TR('sculptTangentialSmoothing'), tool, '_tangent'));
@@ -267,6 +291,7 @@ GuiTools[Enums.Tools.SMOOTH] = {
 GuiTools[Enums.Tools.MASKING] = {
   _ctrls: [],
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlHardness(tool, fold, this));
@@ -346,6 +371,7 @@ GuiTools[Enums.Tools.TRANSFORM] = {
     this._applyGizmoFilters();
   },
   init: function (tool, fold, main) {
+    this._ctrls.length = 0;
     this._main = main;
     this._tool = tool;
     this._ctrls.push(fold.addTitle(TR('sculptGizmoTransform')));
@@ -362,6 +388,7 @@ GuiTools[Enums.Tools.TRANSFORM] = {
 GuiTools[Enums.Tools.ELEMENTSELECT] = {
   _ctrls: [],
   init: function (tool, fold) {
+    this._ctrls.length = 0;
     var modeOptions = [];
     modeOptions[tool.constructor.Mode.VERTEX] = TR('sculptElementSelectVertex');
     modeOptions[tool.constructor.Mode.EDGE] = TR('sculptElementSelectEdge');
@@ -383,6 +410,27 @@ GuiTools[Enums.Tools.ELEMENTSELECT] = {
     this._ctrls.push(fold.addButton(TR('sculptElementSelectAll'), tool, 'selectAll'));
     this._ctrls.push(fold.addButton(TR('sculptElementSelectClear'), tool, 'clearSelection'));
     this._ctrls.push(fold.addButton(TR('sculptElementSelectInvert'), tool, 'invertSelection'));
+  }
+};
+
+// METABALLS - Corregido para evitar duplicación
+GuiTools[Enums.Tools.METABALLS] = {
+  _ctrls: [],
+  init: function (tool, fold, main) {
+    this._ctrls.length = 0;
+    this._ctrls.push(addCtrlRadius(tool, fold, this, main));
+    
+    // Slider para resolución
+    this._ctrls.push(fold.addSlider('Resolution', tool._resolution, function (val) {
+      tool._resolution = val;
+    }, 10, 80, 1));
+    
+    // Smoothness (opcional)
+    if(tool._smoothness !== undefined) {
+       this._ctrls.push(fold.addSlider('Smoothness', tool._smoothness, function (val) {
+         tool._smoothness = val;
+       }, 0.1, 100, 0.1));
+    }
   }
 };
 
