@@ -20,8 +20,10 @@ class Metaballs extends SculptBase {
     var started = super.start(ctrl);
     if (!started) return false;
 
-    var picking = this._main.getPicking();
-    this.stroke(picking);
+    var main = this._main;
+    var picking = main.getPicking();
+    var pickingSym = main.getSculptManager().getSymmetry() ? main.getPickingSymmetry() : null;
+    this.makeStroke(main._mouseX, main._mouseY, picking, pickingSym);
     return true;
   }
 
